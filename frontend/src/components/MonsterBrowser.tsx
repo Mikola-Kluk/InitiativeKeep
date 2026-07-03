@@ -110,9 +110,18 @@ function Library() {
   const [hp, setHp] = useState('')
   const [ac, setAc] = useState('')
   const [detailId, setDetailId] = useState<number | null>(null)
+  const [filter, setFilter] = useState('')
 
   function load() { api.monsters.list().then(setMonsters).catch((e) => setError(e.message)) }
   useEffect(load, [])
+
+  const q = filter.trim().toLowerCase()
+  const shown = q
+    ? monsters.filter((m) =>
+        m.name.toLowerCase().includes(q) ||
+        (m.type ?? '').toLowerCase().includes(q) ||
+        String(m.challenge_rating ?? '').toLowerCase().includes(q))
+    : monsters
 
   async function create(e: React.FormEvent) {
     e.preventDefault()
@@ -139,10 +148,17 @@ function Library() {
       {error && <p className="error">{error}</p>}
       {monsters.length === 0 && <p className="muted">Library empty. Import from Open5e or add homebrew.</p>}
 
+      {monsters.length > 0 && (
+        <div className="row filters">
+          <input placeholder="Filter library… (name, type, CR)" value={filter} onChange={(e) => setFilter(e.target.value)} />
+          <span className="muted">{shown.length}/{monsters.length}</span>
+        </div>
+      )}
+
       <table className="grid">
         <thead><tr><th>Name</th><th>Type</th><th>CR</th><th>HP</th><th>AC</th><th>Source</th><th></th></tr></thead>
         <tbody>
-          {monsters.map((m) => (
+          {shown.map((m) => (
             <tr key={m.id}>
               <td><button className="link-strong name-btn" onClick={() => setDetailId(m.id)}>{m.name}</button></td>
               <td>{m.type}</td>

@@ -2,11 +2,25 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, type Combatant, type Encounter, type Monster } from '../api/client'
 import MonsterDetail from './MonsterDetail'
 
-const CONDITIONS = [
-  'blinded', 'charmed', 'deafened', 'frightened', 'grappled', 'incapacitated',
-  'invisible', 'paralyzed', 'petrified', 'poisoned', 'prone', 'restrained',
-  'stunned', 'unconscious', 'exhaustion',
-]
+// D&D 2024 (5.5e) conditions — short rules summaries shown in the picker.
+const CONDITION_INFO: Record<string, string> = {
+  blinded: "Can't see; auto-fail sight checks. Attacks against you have advantage, your attacks have disadvantage.",
+  charmed: "Can't attack the charmer or target them with harmful effects. Charmer has advantage on social checks with you.",
+  deafened: "Can't hear; auto-fail any check needing hearing.",
+  frightened: "Disadvantage on checks & attacks while the source is in sight. Can't willingly move closer to it.",
+  grappled: "Speed 0. Disadvantage on attacks except against the grappler. Ends if grappler is incapacitated.",
+  incapacitated: "No actions, bonus actions, or reactions. Concentration broken. Can't speak.",
+  invisible: "Unseen without special senses; heavily obscured for hiding. Attacks against you have disadvantage, yours have advantage.",
+  paralyzed: "Incapacitated, can't move or speak. Auto-fail STR & DEX saves. Attacks vs you have advantage; hits within 5 ft are crits.",
+  petrified: "Turned to solid substance. Incapacitated & unaware, weight ×10. Resistance to all damage; immune to poison & disease.",
+  poisoned: 'Disadvantage on attack rolls and ability checks.',
+  prone: 'Can only crawl. Disadvantage on attacks. Attacks within 5 ft have advantage, farther have disadvantage.',
+  restrained: 'Speed 0. Attacks vs you have advantage, yours have disadvantage. Disadvantage on DEX saves.',
+  stunned: 'Incapacitated, can\'t move, speech falters. Auto-fail STR & DEX saves. Attacks vs you have advantage.',
+  unconscious: 'Incapacitated, prone, drop what you hold, unaware. Auto-fail STR & DEX saves. Attacks vs you have advantage; hits within 5 ft crit.',
+  exhaustion: 'Cumulative 1–6. Each level: −2 to d20 tests and −5 ft speed. Level 6 is death.',
+}
+const CONDITIONS = Object.keys(CONDITION_INFO)
 
 export default function EncounterTracker({
   encounterId,
@@ -86,7 +100,6 @@ function CombatantRow({
   onShowDetail: (monsterId: number) => void
 }) {
   const [delta, setDelta] = useState('')
-  const [cond, setCond] = useState('')
 
   async function patch(body: Partial<Combatant>) {
     try { onChange(await api.encounters.updateCombatant(encounterId, c.id, body)) }
@@ -101,11 +114,11 @@ function CombatantRow({
     patch({ current_hp: next })
   }
 
-  function addCond() {
-    const v = cond.trim().toLowerCase()
-    if (!v || c.conditions.includes(v)) { setCond(''); return }
-    setCond('')
-    patch({ conditions: [...c.conditions, v] })
+  function toggleCond(name: string) {
+    const next = c.conditions.includes(name)
+      ? c.conditions.filter((x) => x !== name)
+      : [...c.conditions, name]
+    patch({ conditions: next })
   }
 
   const hpPct = c.max_hp > 0 ? (c.current_hp / c.max_hp) * 100 : 0
@@ -155,20 +168,16 @@ function CombatantRow({
 
       <div className="conds">
         {c.conditions.map((cd) => (
-          <button key={cd} className="chip" onClick={() => patch({ conditions: c.conditions.filter((x) => x !== cd) })}>
+          <button
+            key={cd}
+            className="chip"
+            title={CONDITION_INFO[cd] ?? cd}
+            onClick={() => toggleCond(cd)}
+          >
             {cd} ✕
           </button>
         ))}
-        <input
-          list="conditions"
-          value={cond}
-          placeholder="+ condition"
-          onChange={(e) => setCond(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') addCond() }}
-        />
-        <datalist id="conditions">
-          {CONDITIONS.map((x) => <option key={x} value={x} />)}
-        </datalist>
+        <ConditionMenu selected={c.conditions} onToggle={toggleCond} />
       </div>
 
       <button
@@ -178,6 +187,39 @@ function CombatantRow({
         ✕
       </button>
     </li>
+  )
+}
+
+// Hover-to-open picker: toggle any number of conditions, each row shows its rules text.
+function ConditionMenu({
+  selected, onToggle,
+}: {
+  selected: string[]
+  onToggle: (name: string) => void
+}) {
+  return (
+    <div className="cond-menu">
+      <button type="button" className="cond-add">＋ Status</button>
+      <div className="cond-panel">
+        {CONDITIONS.map((name) => {
+          const on = selected.includes(name)
+          return (
+            <button
+              key={name}
+              type="button"
+              className={`cond-opt ${on ? 'on' : ''}`}
+              onClick={() => onToggle(name)}
+            >
+              <span className="cond-check">{on ? '☑' : '☐'}</span>
+              <span className="cond-body">
+                <span className="cond-name">{name}</span>
+                <span className="cond-desc">{CONDITION_INFO[name]}</span>
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 

@@ -78,12 +78,41 @@ input:focus, select:focus { outline: none; border-color: #6b4bd6; }
 .hp-ctrl button { padding: 4px 8px; font-size: 0.8rem; }
 
 .conds { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
-.conds input { width: 110px; padding: 4px 8px; font-size: 0.8rem; }
 .chip {
   background: #3a2e4d; border: 1px solid #5a3f7d; color: #d4b8ff;
-  padding: 2px 8px; border-radius: 12px; font-size: 0.75rem;
+  padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; cursor: pointer;
 }
+.chip:hover { background: #4a3a63; }
 .remove { justify-self: end; }
+
+/* condition picker (hover-to-open) */
+.cond-menu { position: relative; display: inline-block; }
+.cond-add {
+  background: #22252e; border: 1px dashed #4a4d57; color: #9aa0ae;
+  padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; cursor: pointer;
+}
+.cond-menu:hover .cond-add { border-color: #5a3f7d; color: #d4b8ff; }
+.cond-panel {
+  display: none; position: absolute; z-index: 50; right: 0; top: 100%;
+  margin-top: 4px; width: 340px; max-height: 320px; overflow-y: auto;
+  background: #16181e; border: 1px solid #3a3d47; border-radius: 9px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); padding: 4px;
+}
+/* invisible bridge so moving cursor to the panel doesn't close it */
+.cond-menu::after {
+  content: ''; position: absolute; top: 100%; right: 0; width: 100%; height: 6px;
+}
+.cond-menu:hover .cond-panel, .cond-panel:hover { display: block; }
+.cond-opt {
+  display: flex; gap: 8px; width: 100%; text-align: left; align-items: flex-start;
+  background: none; border: none; padding: 6px 8px; border-radius: 6px; cursor: pointer;
+}
+.cond-opt:hover { background: #232630; }
+.cond-opt.on { background: #2a2240; }
+.cond-check { color: #d4b8ff; font-size: 0.95rem; line-height: 1.2; }
+.cond-body { display: flex; flex-direction: column; gap: 2px; }
+.cond-name { color: #e8e6ef; font-size: 0.82rem; font-weight: 600; text-transform: capitalize; }
+.cond-desc { color: #8b90a0; font-size: 0.72rem; line-height: 1.3; }
 
 .add-combatant {
   margin-top: 18px; padding: 14px; background: #1a1c22;
