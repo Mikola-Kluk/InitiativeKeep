@@ -1,5 +1,6 @@
 from app.models.encounter import Combatant, Encounter
 from app.models.monster import Monster
+from app.services import dice
 from app.schemas.encounter import (
     CombatantCreate,
     CombatantUpdate,
@@ -137,11 +138,30 @@ async def remove_combatant(encounter_id: int, combatant_id: int) -> dict | None:
 # ---- Combat control ----
 
 async def start_combat(encounter_id: int) -> dict | None:
-    """Order by initiative and begin at the top. Requires >=1 combatant."""
+    """Begin combat: roll initiative + HP for NPCs, order by initiative, start at top.
+
+    - NPC (is_pc=False): initiative = d20 + dex_modifier
+    - From a statblock (monster_id set) with hit_dice: HP rolled from hit_dice
+    PCs keep their entered initiative and HP.
+    """
     encounter = await Encounter.get_or_none(id=encounter_id)
     if not encounter:
         return None
-    combatants = await _sorted_combatants(encounter_id)
+
+    combatants = await Combatant.filter(encounter_id=encounter_id).prefetch_related("monster")
+    for c in combatants:
+        changed: list[str] = []
+        if not c.is_pc:
+            c.initiative = dice.roll_initiative(c.dex_modifier)
+            changed.append("initiative")
+        if c.monster_id and c.monster and c.monster.hit_dice:
+            hp = dice.roll_expr(c.monster.hit_dice, default=c.max_hp)
+            c.max_hp = hp
+            c.current_hp = hp
+            changed += ["max_hp", "current_hp"]
+        if changed:
+            await c.save(update_fields=changed)
+
     encounter.round = 1
     encounter.current_turn_index = 0 if combatants else -1
     await encounter.save(update_fields=["round", "current_turn_index"])

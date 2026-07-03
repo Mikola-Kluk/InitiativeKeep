@@ -79,8 +79,9 @@ async def test_unrolled_initiative_sorts_last(client: AsyncClient):
 
 async def test_start_and_turn_cycle(client: AsyncClient):
     eid = await _make_encounter(client)
-    await _add(client, eid, name="A", initiative=20)
-    await _add(client, eid, name="B", initiative=10)
+    # PCs keep their entered initiative (NPC initiative is rerolled on start)
+    await _add(client, eid, name="A", is_pc=True, initiative=20)
+    await _add(client, eid, name="B", is_pc=True, initiative=10)
 
     s = (await client.post(f"/api/v1/encounters/{eid}/start")).json()
     assert s["round"] == 1 and s["current_turn_index"] == 0
@@ -97,10 +98,36 @@ async def test_start_and_turn_cycle(client: AsyncClient):
 
 async def test_prev_turn_clamps_at_start(client: AsyncClient):
     eid = await _make_encounter(client)
-    await _add(client, eid, name="A", initiative=5)
+    await _add(client, eid, name="A", is_pc=True, initiative=5)
     await client.post(f"/api/v1/encounters/{eid}/start")
     p = (await client.post(f"/api/v1/encounters/{eid}/prev-turn")).json()
     assert p["round"] == 1 and p["current_turn_index"] == 0  # cannot go below round 1
+
+
+async def test_start_rolls_npc_initiative_and_hp(client: AsyncClient):
+    # monster with a fixed hit_dice -> HP rolled into [2, 12]
+    mid = (await client.post(
+        "/api/v1/monsters/",
+        json={"name": "Goblin", "hit_points": 999, "hit_dice": "2d6", "dexterity": 14},
+    )).json()["id"]
+    eid = await _make_encounter(client)
+    await _add(client, eid, monster_id=mid)  # no initiative provided
+
+    started = (await client.post(f"/api/v1/encounters/{eid}/start")).json()
+    c = started["combatants"][0]
+    assert c["initiative"] is not None       # NPC initiative was rolled
+    assert 1 + 2 <= c["initiative"] <= 20 + 2  # d20 + dex_mod(=2)
+    assert 2 <= c["max_hp"] <= 12             # rolled from 2d6, not the 999 default
+    assert c["current_hp"] == c["max_hp"]
+
+
+async def test_start_keeps_pc_initiative(client: AsyncClient):
+    eid = await _make_encounter(client)
+    await _add(client, eid, name="Hero", is_pc=True, initiative=13, max_hp=30)
+    started = (await client.post(f"/api/v1/encounters/{eid}/start")).json()
+    c = started["combatants"][0]
+    assert c["initiative"] == 13   # unchanged
+    assert c["max_hp"] == 30       # unchanged
 
 
 async def test_update_combatant_hp_and_conditions(client: AsyncClient):

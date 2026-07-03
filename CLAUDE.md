@@ -66,6 +66,11 @@ calls live in services.
 Initiative order: highest `initiative` first, `dex_modifier` as tiebreak, unrolled (null) last.
 Sorting is computed in `services/encounter.py` (not a DB order_by) — see `_initiative_key`.
 
+**Start combat** (`start_combat`) rolls for NPCs: initiative = d20 + dex_modifier, and
+HP rerolled from the linked monster's `hit_dice` (e.g. `2d6`). PCs (`is_pc=True`) keep
+their entered initiative and HP. Dice logic in `services/dice.py` (`roll_expr`,
+`roll_initiative`); `roll_expr` parses `NdM+K`, clamps to min 1, falls back to a default.
+
 ## API (key endpoints)
 
 - `GET/POST/PATCH/DELETE /api/v1/monsters` — homebrew CRUD, `?search=`
@@ -98,7 +103,8 @@ frontend/src/
 │   ├── EncounterTracker.tsx   combat view: round + turn controls (start/next/prev),
 │   │                          combatant rows (initiative, HP bar + dmg/heal, conditions),
 │   │                          roll-unrolled-initiative, add combatant (from monster or PC)
-│   └── MonsterBrowser.tsx     Open5e browse/filter/import + homebrew "My Library"
+│   ├── MonsterBrowser.tsx     Open5e browse/filter/import + homebrew "My Library"
+│   └── MonsterDetail.tsx      statblock modal (abilities, AC/HP/CR, speed, traits, actions)
 ├── App.css                   all styles (no UI library), dark theme
 └── index.css                 reset + body
 ```

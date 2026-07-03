@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, type Monster, type Open5eBrowse, type Open5eSource } from '../api/client'
+import MonsterDetail from './MonsterDetail'
 
 export default function MonsterBrowser() {
   const [tab, setTab] = useState<'open5e' | 'library'>('open5e')
@@ -103,6 +104,7 @@ function Library() {
   const [name, setName] = useState('')
   const [hp, setHp] = useState('')
   const [ac, setAc] = useState('')
+  const [detailId, setDetailId] = useState<number | null>(null)
 
   function load() { api.monsters.list().then(setMonsters).catch((e) => setError(e.message)) }
   useEffect(load, [])
@@ -137,7 +139,7 @@ function Library() {
         <tbody>
           {monsters.map((m) => (
             <tr key={m.id}>
-              <td>{m.name}</td>
+              <td><button className="link-strong name-btn" onClick={() => setDetailId(m.id)}>{m.name}</button></td>
               <td>{m.type}</td>
               <td>{m.challenge_rating}</td>
               <td>{m.hit_points}</td>
@@ -150,6 +152,8 @@ function Library() {
           ))}
         </tbody>
       </table>
+
+      {detailId !== null && <MonsterDetail monsterId={detailId} onClose={() => setDetailId(null)} />}
     </div>
   )
 }

@@ -91,6 +91,38 @@ input:focus, select:focus { outline: none; border-color: #6b4bd6; }
 }
 .add-combatant label { font-size: 0.9rem; }
 
+.name-btn { text-align: left; }
+
+/* modal + statblock */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 40px 16px; overflow-y: auto; z-index: 100;
+}
+.modal {
+  position: relative; background: #1c1e25; border: 1px solid #3a3d47;
+  border-radius: 12px; padding: 24px 28px; max-width: 620px; width: 100%;
+}
+.modal-close {
+  position: absolute; top: 12px; right: 12px; background: none; border: none;
+  font-size: 1.1rem; color: #8a8f9c;
+}
+.statblock h2 { margin: 0 0 2px; color: #c9b3ff; }
+.sb-sub { margin: 0 0 12px; font-style: italic; color: #8a8f9c; }
+.sb-line { display: flex; gap: 20px; flex-wrap: wrap; margin: 6px 0; }
+.sb-line b { color: #a58bff; }
+.abilities { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
+.ability {
+  flex: 1; min-width: 74px; text-align: center; background: #23252d;
+  border: 1px solid #2a2c34; border-radius: 8px; padding: 8px 4px;
+}
+.ability-label { font-size: 0.72rem; color: #8a8f9c; letter-spacing: 0.05em; }
+.ability-score { font-weight: 700; }
+.sb-section { margin-top: 16px; border-top: 1px solid #2a2c34; padding-top: 12px; }
+.sb-section h3 { margin: 0 0 8px; color: #c9b3ff; font-size: 1rem; }
+.sb-section p { margin: 6px 0; font-size: 0.9rem; line-height: 1.4; }
+.sb-section b { color: #e6e6e6; }
+
 /* tables */
 .grid { width: 100%; border-collapse: collapse; margin-top: 10px; }
 .grid th, .grid td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #2a2c34; font-size: 0.9rem; }

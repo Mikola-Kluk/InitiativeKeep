@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, type Combatant, type Encounter, type Monster } from '../api/client'
+import MonsterDetail from './MonsterDetail'
 
 const CONDITIONS = [
   'blinded', 'charmed', 'deafened', 'frightened', 'grappled', 'incapacitated',
@@ -21,6 +22,7 @@ export default function EncounterTracker({
   const [enc, setEnc] = useState<Encounter | null>(null)
   const [monsters, setMonsters] = useState<Monster[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [detailId, setDetailId] = useState<number | null>(null)
 
   const load = useCallback(() => {
     api.encounters.get(encounterId).then(setEnc).catch((e) => setError(e.message))
@@ -76,23 +78,27 @@ export default function EncounterTracker({
             onChange={setEnc}
             encounterId={enc.id}
             onError={setError}
+            onShowDetail={setDetailId}
           />
         ))}
       </ul>
 
       <AddCombatant encounterId={enc.id} monsters={monsters} onAdded={setEnc} onError={setError} />
+
+      {detailId !== null && <MonsterDetail monsterId={detailId} onClose={() => setDetailId(null)} />}
     </section>
   )
 }
 
 function CombatantRow({
-  c, active, encounterId, onChange, onError,
+  c, active, encounterId, onChange, onError, onShowDetail,
 }: {
   c: Combatant
   active: boolean
   encounterId: number
   onChange: (e: Encounter) => void
   onError: (m: string) => void
+  onShowDetail: (monsterId: number) => void
 }) {
   const [delta, setDelta] = useState('')
   const [cond, setCond] = useState('')
@@ -133,7 +139,13 @@ function CombatantRow({
       </div>
 
       <div className="who">
-        <strong>{c.name}</strong>
+        {c.monster_id !== null ? (
+          <button className="link-strong name-btn" onClick={() => onShowDetail(c.monster_id!)}>
+            {c.name}
+          </button>
+        ) : (
+          <strong>{c.name}</strong>
+        )}
         <span className="tags">
           {c.is_pc ? <span className="tag pc">PC</span> : <span className="tag npc">NPC</span>}
           <span className="tag">AC {c.armor_class}</span>

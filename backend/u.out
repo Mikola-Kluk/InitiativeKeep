@@ -1,3 +1,0 @@
-INFO:     127.0.0.1:51149 - "GET /openapi.json HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51149 - "POST /api/v1/open5e/import HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51149 - "GET /api/v1/monsters/ HTTP/1.1" 200 OK

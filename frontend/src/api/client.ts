@@ -108,6 +108,7 @@ export const api = {
   monsters: {
     list: (search?: string) =>
       request<Monster[]>(`/monsters/${qs({ search })}`),
+    get: (id: number) => request<Monster>(`/monsters/${id}`),
     create: (data: Partial<Monster>) =>
       request<Monster>('/monsters/', { method: 'POST', body: JSON.stringify(data) }),
     remove: (id: number) =>
