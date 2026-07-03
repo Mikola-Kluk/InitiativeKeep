@@ -78,6 +78,33 @@ Sorting is computed in `services/encounter.py` (not a DB order_by) — see `_ini
 - `POST/PATCH/DELETE /api/v1/encounters/{id}/combatants[/{cid}]`
 - `POST /api/v1/encounters/{id}/start | next-turn | prev-turn` — combat control
 
+## Frontend (React + Vite + TypeScript)
+
+Running (from `frontend/`):
+```powershell
+npm install
+npm run dev      # http://localhost:5173  (proxies /api -> backend :8000)
+npm run build    # tsc -b + vite build -> frontend/dist/
+```
+Backend must run on port 8000 for the dev proxy (`vite.config.ts`).
+
+```
+frontend/src/
+├── main.tsx                  mounts <App />
+├── App.tsx                   tab shell: Encounters | Monsters; holds active encounter
+├── api/client.ts             typed fetch wrapper + all API calls (mirrors backend schemas)
+├── components/
+│   ├── EncounterList.tsx      list/create/delete encounters
+│   ├── EncounterTracker.tsx   combat view: round + turn controls (start/next/prev),
+│   │                          combatant rows (initiative, HP bar + dmg/heal, conditions),
+│   │                          roll-unrolled-initiative, add combatant (from monster or PC)
+│   └── MonsterBrowser.tsx     Open5e browse/filter/import + homebrew "My Library"
+├── App.css                   all styles (no UI library), dark theme
+└── index.css                 reset + body
+```
+
+No auth (backend has none yet). No router — `App.tsx` switches views via state.
+
 ## Database
 
 - ORM: Tortoise ORM (async). Migrations: aerich.
@@ -100,7 +127,7 @@ TODO: Dockerfile, docker-compose, entrypoint (`aerich upgrade` + uvicorn), GitHu
 - [x] aerich migrations + E2E smoke test (import → encounter → combatants → turns)
 - [ ] pytest suite in `backend/tests/`
 - [x] Open5e browse/filter + bulk import (3200+ monsters — scraping deemed unnecessary)
-- [ ] Frontend (React + Vite, like BoardGamesCounter)
+- [x] Frontend (React + Vite + TS): encounter tracker, HP/conditions, Open5e browse/import
 - [ ] Auth (deferred — add later, as BGC did)
 - [ ] Docker + Render/Neon deploy
 ```

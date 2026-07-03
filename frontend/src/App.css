@@ -1,0 +1,98 @@
+.app { max-width: 1000px; margin: 0 auto; padding: 0 16px 60px; }
+
+.topbar {
+  display: flex; align-items: center; gap: 24px;
+  padding: 16px 0; border-bottom: 1px solid #2a2c34; margin-bottom: 20px;
+}
+.topbar h1 { font-size: 1.4rem; margin: 0; }
+.topbar nav { display: flex; gap: 8px; }
+
+button {
+  background: #262932; color: #e6e6e6; border: 1px solid #3a3d47;
+  padding: 7px 13px; border-radius: 7px; cursor: pointer; font-size: 0.9rem;
+}
+button:hover:not(:disabled) { background: #30343f; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+button.active { background: #6b4bd6; border-color: #7d5ee0; }
+button.danger { background: #3a2226; border-color: #6b2f37; color: #ff9aa5; }
+button.danger:hover:not(:disabled) { background: #4d2a30; }
+button.heal { background: #1e3a2a; border-color: #2f6b45; color: #9affb8; }
+button.ghost { background: transparent; }
+button.link, button.link-strong {
+  background: none; border: none; padding: 0; color: #a58bff; cursor: pointer;
+}
+button.link-strong { font-weight: 600; font-size: 1rem; }
+
+input, select {
+  background: #1c1e25; color: #e6e6e6; border: 1px solid #3a3d47;
+  padding: 7px 10px; border-radius: 7px; font-size: 0.9rem;
+}
+input:focus, select:focus { outline: none; border-color: #6b4bd6; }
+
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+.row.spread { justify-content: space-between; }
+.controls button { font-weight: 600; }
+.filters { align-items: stretch; }
+.muted { color: #8a8f9c; font-size: 0.88rem; }
+.error { color: #ff7b86; background: #2a1a1d; padding: 8px 12px; border-radius: 7px; }
+
+.round-badge {
+  background: #6b4bd6; padding: 6px 14px; border-radius: 20px; font-weight: 700;
+}
+
+/* encounter cards */
+.card-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.card {
+  display: flex; align-items: center; gap: 14px;
+  background: #1c1e25; border: 1px solid #2a2c34; padding: 12px 16px; border-radius: 9px;
+}
+.card .muted { margin-left: auto; }
+
+/* tracker */
+.tracker { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.combatant {
+  display: grid; grid-template-columns: 52px 1.4fr 2fr 2fr 32px;
+  gap: 12px; align-items: center;
+  background: #1c1e25; border: 1px solid #2a2c34; border-left: 4px solid #2a2c34;
+  padding: 10px 12px; border-radius: 9px;
+}
+.combatant.active { border-left-color: #6b4bd6; background: #23202e; box-shadow: 0 0 0 1px #6b4bd6 inset; }
+.combatant.down { opacity: 0.55; }
+
+.init-input { width: 44px; text-align: center; font-weight: 700; font-size: 1.1rem; padding: 6px 2px; }
+.who strong { display: block; }
+.tags { display: flex; gap: 5px; margin-top: 3px; }
+.tag { font-size: 0.7rem; padding: 1px 6px; border-radius: 5px; background: #2c2f38; color: #b9bec9; }
+.tag.pc { background: #1e3a4d; color: #8fd3ff; }
+.tag.npc { background: #3a2e1e; color: #ffcf8f; }
+
+.hp { display: flex; flex-direction: column; gap: 3px; }
+.hp-bar { height: 7px; background: #2a2c34; border-radius: 4px; overflow: hidden; }
+.hp-fill { height: 100%; transition: width 0.2s; }
+.hp-fill.ok { background: #3fbf6b; }
+.hp-fill.warn { background: #e0b13c; }
+.hp-fill.crit { background: #e04c4c; }
+.hp-num { font-size: 0.8rem; color: #b9bec9; }
+.hp-ctrl { display: flex; gap: 4px; margin-top: 2px; }
+.hp-ctrl input { width: 48px; padding: 4px 6px; }
+.hp-ctrl button { padding: 4px 8px; font-size: 0.8rem; }
+
+.conds { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.conds input { width: 110px; padding: 4px 8px; font-size: 0.8rem; }
+.chip {
+  background: #3a2e4d; border: 1px solid #5a3f7d; color: #d4b8ff;
+  padding: 2px 8px; border-radius: 12px; font-size: 0.75rem;
+}
+.remove { justify-self: end; }
+
+.add-combatant {
+  margin-top: 18px; padding: 14px; background: #1a1c22;
+  border: 1px dashed #3a3d47; border-radius: 9px;
+}
+.add-combatant label { font-size: 0.9rem; }
+
+/* tables */
+.grid { width: 100%; border-collapse: collapse; margin-top: 10px; }
+.grid th, .grid td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #2a2c34; font-size: 0.9rem; }
+.grid th { color: #8a8f9c; font-weight: 600; }
+.grid tbody tr:hover { background: #1c1e25; }
