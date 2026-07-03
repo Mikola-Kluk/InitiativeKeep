@@ -8,10 +8,6 @@ const CONDITIONS = [
   'stunned', 'unconscious', 'exhaustion',
 ]
 
-function d20() {
-  return Math.floor(Math.random() * 20) + 1
-}
-
 export default function EncounterTracker({
   encounterId,
   onBack,
@@ -40,16 +36,6 @@ export default function EncounterTracker({
     try { setEnc(await fn()) } catch (e) { setError((e as Error).message) }
   }
 
-  async function rollAll() {
-    if (!enc) return
-    for (const c of enc.combatants) {
-      if (c.initiative === null) {
-        await api.encounters.updateCombatant(enc.id, c.id, { initiative: d20() + c.dex_modifier })
-      }
-    }
-    load()
-  }
-
   return (
     <section>
       <div className="row spread">
@@ -64,7 +50,6 @@ export default function EncounterTracker({
         <button onClick={() => ctrl(() => api.encounters.start(enc.id))}>▶ Start</button>
         <button disabled={!started} onClick={() => ctrl(() => api.encounters.prevTurn(enc.id))}>◀ Prev</button>
         <button disabled={!started} onClick={() => ctrl(() => api.encounters.nextTurn(enc.id))}>Next ▶</button>
-        <button className="ghost" onClick={rollAll}>🎲 Roll unrolled initiative</button>
       </div>
 
       {enc.combatants.length === 0 && <p className="muted">No combatants — add some below.</p>}
