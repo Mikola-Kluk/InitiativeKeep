@@ -4,4 +4,4 @@ location = "./migrations"
 src_folder = "./."
 
 [tool.pytest.ini_options]
-asyncio_mode = "auto"
+testpaths = ["tests"]
