@@ -7,7 +7,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 InitiativeKeep — combat/initiative tracker for D&D 2024 (5.5e). FastAPI backend (REST API), frontend TBD.
 Sibling project **BoardGamesCounter** is the reference for conventions, Docker, and deployment.
 
-## Running
+## Quick start (Docker — runs everything)
+
+From the repo root:
+```powershell
+docker compose up --build
+```
+Then open **http://localhost:8000** — one container builds the React frontend and
+serves it from the FastAPI backend; data is stored in a SQLite file on the `ikdata`
+volume (survives restarts). Stop with `docker compose down`. This is also the image
+we deploy to AWS later (swap `DATABASE_URL` for a real Postgres).
+
+Relevant files: `Dockerfile` (multi-stage: node builds SPA → python runs API),
+`docker-compose.yml`, `entrypoint.sh` (runs `aerich upgrade` then uvicorn).
+
+## Running (without Docker, for development)
 
 Backend dev server (from `backend/`):
 ```powershell

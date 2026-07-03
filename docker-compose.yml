@@ -1,0 +1,19 @@
+# One command to run the whole app:  docker compose up --build
+# Then open http://localhost:8000
+#
+# For now the app uses a SQLite file (simplest — no separate database server).
+# The file lives on a named volume ("ikdata") so your data survives restarts.
+# When we move to AWS we'll point DATABASE_URL at a real Postgres instead.
+
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"          # localhost:8000 -> container port 8000
+    environment:
+      DATABASE_URL: sqlite:///data/db.sqlite3
+    volumes:
+      - ikdata:/data         # keep the SQLite file between runs
+
+volumes:
+  ikdata:
