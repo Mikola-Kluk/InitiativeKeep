@@ -118,6 +118,7 @@ export const api = {
   open5e: {
     browse: (params: { q?: string; cr?: string; type?: string; document?: string; page?: number }) =>
       request<Open5eBrowse>(`/open5e/monsters${qs(params)}`),
+    preview: (slug: string) => request<Monster>(`/open5e/monsters/${slug}`),
     sources: () => request<Open5eSource[]>('/open5e/sources'),
     importOne: (slug: string) =>
       request<Monster>(`/open5e/import/${slug}`, { method: 'POST' }),

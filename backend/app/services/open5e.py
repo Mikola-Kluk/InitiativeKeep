@@ -6,7 +6,7 @@ from app.config import settings
 from app.models.monster import Monster
 
 _USER_AGENT = "InitiativeKeep/1.0"
-_PAGE_SIZE = 20
+_PAGE_SIZE = 50
 
 
 def _map_open5e_to_fields(m: dict) -> dict:
@@ -98,6 +98,20 @@ async def list_sources() -> list[dict]:
         for d in data.get("results", [])
         if d.get("slug")
     ]
+
+
+async def preview_open5e(slug: str) -> dict | None:
+    """Fetch a full statblock by slug WITHOUT saving it — for previewing stats
+    before import. Shaped like MonsterOut (id=0, not persisted)."""
+    async with httpx.AsyncClient(headers={"User-Agent": _USER_AGENT}) as client:
+        resp = await client.get(
+            f"{settings.OPEN5E_BASE_URL}/v1/monsters/{slug}/", timeout=15
+        )
+    if resp.status_code == 404:
+        return None
+    resp.raise_for_status()
+    fields = _map_open5e_to_fields(resp.json())
+    return {**fields, "id": 0, "dex_modifier": (fields["dexterity"] - 10) // 2}
 
 
 async def import_monster(slug: str) -> Monster | None:

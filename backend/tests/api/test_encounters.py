@@ -46,6 +46,22 @@ async def test_add_combatant_from_monster(client: AsyncClient):
     assert c["monster_id"] == mid
 
 
+async def test_duplicate_combatants_get_numbered(client: AsyncClient):
+    mid = (await client.post("/api/v1/monsters/", json={"name": "Goblin"})).json()["id"]
+    eid = await _make_encounter(client)
+
+    r1 = await _add(client, eid, monster_id=mid)
+    assert [c["name"] for c in r1.json()["combatants"]] == ["Goblin"]  # lone -> plain
+
+    r2 = await _add(client, eid, monster_id=mid)  # second -> pair numbered
+    names2 = sorted(c["name"] for c in r2.json()["combatants"])
+    assert names2 == ["Goblin (1)", "Goblin (2)"]
+
+    r3 = await _add(client, eid, monster_id=mid)
+    names3 = sorted(c["name"] for c in r3.json()["combatants"])
+    assert names3 == ["Goblin (1)", "Goblin (2)", "Goblin (3)"]
+
+
 async def test_add_combatant_bad_monster(client: AsyncClient):
     eid = await _make_encounter(client)
     r = await _add(client, eid, monster_id=9999, initiative=5)

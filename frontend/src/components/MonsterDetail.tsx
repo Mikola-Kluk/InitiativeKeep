@@ -13,17 +13,23 @@ function mod(score: number): string {
 
 export default function MonsterDetail({
   monsterId,
+  open5eSlug,
   onClose,
 }: {
-  monsterId: number
+  monsterId?: number
+  open5eSlug?: string
   onClose: () => void
 }) {
   const [m, setM] = useState<Monster | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    api.monsters.get(monsterId).then(setM).catch((e) => setError(e.message))
-  }, [monsterId])
+    const load =
+      open5eSlug !== undefined
+        ? api.open5e.preview(open5eSlug)
+        : api.monsters.get(monsterId!)
+    load.then(setM).catch((e) => setError(e.message))
+  }, [monsterId, open5eSlug])
 
   return (
     <div className="modal-backdrop" onClick={onClose}>

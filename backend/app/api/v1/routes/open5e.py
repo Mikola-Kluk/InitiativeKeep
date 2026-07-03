@@ -29,6 +29,17 @@ async def browse(
         raise HTTPException(status_code=502, detail=f"Open5e API error: {exc}")
 
 
+@router.get("/monsters/{slug}", response_model=MonsterOut)
+async def preview(slug: str):
+    try:
+        monster = await open5e_service.preview_open5e(slug)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Open5e API error: {exc}")
+    if not monster:
+        raise HTTPException(status_code=404, detail=f"Monster '{slug}' not found on Open5e")
+    return monster
+
+
 @router.get("/sources", response_model=list[Open5eSource])
 async def sources():
     try:

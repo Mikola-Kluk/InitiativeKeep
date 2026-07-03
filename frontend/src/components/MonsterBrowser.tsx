@@ -24,6 +24,7 @@ function Open5eBrowser() {
   const [data, setData] = useState<Open5eBrowse | null>(null)
   const [sources, setSources] = useState<Open5eSource[]>([])
   const [imported, setImported] = useState<Record<string, 'ok' | 'busy'>>({})
+  const [previewSlug, setPreviewSlug] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => { api.open5e.sources().then(setSources).catch(() => {}) }, [])
@@ -71,7 +72,7 @@ function Open5eBrowser() {
             <tbody>
               {data.results.map((m) => (
                 <tr key={m.slug}>
-                  <td>{m.name}</td>
+                  <td><button className="link-strong name-btn" onClick={() => setPreviewSlug(m.slug)}>{m.name}</button></td>
                   <td>{m.type}</td>
                   <td>{m.challenge_rating}</td>
                   <td>{m.hit_points}</td>
@@ -93,6 +94,10 @@ function Open5eBrowser() {
             <button disabled={data.page >= data.num_pages} onClick={() => search(page + 1)}>Next →</button>
           </div>
         </>
+      )}
+
+      {previewSlug !== null && (
+        <MonsterDetail open5eSlug={previewSlug} onClose={() => setPreviewSlug(null)} />
       )}
     </div>
   )

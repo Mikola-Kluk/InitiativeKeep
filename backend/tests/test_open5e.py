@@ -93,12 +93,29 @@ async def test_browse_open5e(monkeypatch):
 
 
 async def test_browse_pagination_num_pages(monkeypatch):
-    resp = _FakeResp({"count": 45, "results": []})
+    resp = _FakeResp({"count": 120, "results": []})
     monkeypatch.setattr(httpx, "AsyncClient", _fake_client_factory(resp))
     out = await svc.browse_open5e(page=2)
-    assert out["count"] == 45
+    assert out["count"] == 120
     assert out["page"] == 2
-    assert out["num_pages"] == 3  # ceil(45/20)
+    assert out["num_pages"] == 3  # ceil(120/50)
+
+
+async def test_preview_open5e(monkeypatch):
+    resp = _FakeResp(_GOBLIN)
+    monkeypatch.setattr(httpx, "AsyncClient", _fake_client_factory(resp))
+    p = await svc.preview_open5e("goblin")
+    assert p is not None
+    assert p["id"] == 0                 # not persisted
+    assert p["name"] == "Goblin"
+    assert p["dex_modifier"] == 2       # (14-10)//2
+    assert p["actions"] == _GOBLIN["actions"]
+
+
+async def test_preview_open5e_404(monkeypatch):
+    resp = _FakeResp(None, status_code=404)
+    monkeypatch.setattr(httpx, "AsyncClient", _fake_client_factory(resp))
+    assert await svc.preview_open5e("nope") is None
 
 
 async def test_import_monster_creates(monkeypatch):

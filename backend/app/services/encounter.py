@@ -1,3 +1,5 @@
+import re
+
 from app.models.encounter import Combatant, Encounter
 from app.models.monster import Monster
 from app.services import dice
@@ -7,6 +9,38 @@ from app.schemas.encounter import (
     EncounterCreate,
     EncounterUpdate,
 )
+
+_NUM_SUFFIX = re.compile(r"\s*\((\d+)\)$")
+
+
+def _base_name(name: str) -> str:
+    """'Goblin (2)' -> 'Goblin'."""
+    return _NUM_SUFFIX.sub("", name)
+
+
+async def _dedupe_name(encounter_id: int, base: str) -> str:
+    """Number duplicate combatants: first stays 'Goblin', a second turns the pair
+    into 'Goblin (1)' / 'Goblin (2)', and so on."""
+    siblings = [
+        c for c in await Combatant.filter(encounter_id=encounter_id)
+        if _base_name(c.name) == base
+    ]
+    if not siblings:
+        return base
+
+    numbers = []
+    for c in siblings:
+        m = _NUM_SUFFIX.search(c.name)
+        numbers.append(int(m.group(1)) if m else None)
+
+    if len(siblings) == 1 and numbers[0] is None:
+        # promote the lone unnumbered one to "(1)"
+        siblings[0].name = f"{base} (1)"
+        await siblings[0].save(update_fields=["name"])
+        return f"{base} (2)"
+
+    used = [n for n in numbers if n is not None]
+    return f"{base} ({(max(used) + 1) if used else len(siblings) + 1})"
 
 
 def _initiative_key(c: Combatant) -> tuple:
@@ -111,6 +145,7 @@ async def add_combatant(encounter_id: int, data: CombatantCreate) -> dict | None
     if not fields["name"]:
         return None
 
+    fields["name"] = await _dedupe_name(encounter_id, _base_name(fields["name"]))
     await Combatant.create(**fields)
     return await get_encounter(encounter_id)
 
