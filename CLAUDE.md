@@ -69,8 +69,11 @@ Sorting is computed in `services/encounter.py` (not a DB order_by) — see `_ini
 ## API (key endpoints)
 
 - `GET/POST/PATCH/DELETE /api/v1/monsters` — homebrew CRUD, `?search=`
-- `GET  /api/v1/open5e/search?q=` — search Open5e statblocks
-- `POST /api/v1/open5e/import/{slug}` — import a statblock into the DB (idempotent by slug)
+- `GET  /api/v1/open5e/monsters` — browse Open5e (3200+ statblocks), filters:
+  `?q=`, `?cr=`, `?type=`, `?document=` (source slug), `?page=`; paginated (20/page)
+- `GET  /api/v1/open5e/sources` — list document sources (srd, tob, cc, ...) for filters
+- `POST /api/v1/open5e/import/{slug}` — import one statblock (idempotent by slug)
+- `POST /api/v1/open5e/import` — bulk import `{"slugs": [...]}` → `{imported, failed}`
 - `GET/POST/PATCH/DELETE /api/v1/encounters`
 - `POST/PATCH/DELETE /api/v1/encounters/{id}/combatants[/{cid}]`
 - `POST /api/v1/encounters/{id}/start | next-turn | prev-turn` — combat control
@@ -96,7 +99,7 @@ TODO: Dockerfile, docker-compose, entrypoint (`aerich upgrade` + uvicorn), GitHu
 - [x] Backend scaffold, models, monster CRUD, Open5e import, encounter + combat control
 - [x] aerich migrations + E2E smoke test (import → encounter → combatants → turns)
 - [ ] pytest suite in `backend/tests/`
-- [ ] Scraping source for larger monster lists (beyond Open5e)
+- [x] Open5e browse/filter + bulk import (3200+ monsters — scraping deemed unnecessary)
 - [ ] Frontend (React + Vite, like BoardGamesCounter)
 - [ ] Auth (deferred — add later, as BGC did)
 - [ ] Docker + Render/Neon deploy

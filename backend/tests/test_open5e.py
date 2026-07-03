@@ -79,23 +79,26 @@ async def test_map_open5e_missing_fields_fallback():
     assert fields["traits"] == []
 
 
-async def test_search_open5e(monkeypatch):
-    resp = _FakeResp({"results": [_GOBLIN]})
+async def test_browse_open5e(monkeypatch):
+    resp = _FakeResp({"count": 1, "results": [{**_GOBLIN, "document__slug": "tob"}]})
     monkeypatch.setattr(httpx, "AsyncClient", _fake_client_factory(resp))
-    rows = await svc.search_open5e("goblin")
-    assert rows == [
+    out = await svc.browse_open5e(query="goblin")
+    assert out["count"] == 1
+    assert out["page"] == 1
+    assert out["num_pages"] == 1
+    assert out["results"] == [
         {"slug": "goblin", "name": "Goblin", "type": "humanoid",
-         "challenge_rating": "1/4", "hit_points": 7}
+         "challenge_rating": "1/4", "cr": 0.25, "hit_points": 7, "document": "tob"}
     ]
 
 
-async def test_search_open5e_empty_query(monkeypatch):
-    # empty query must not hit the network
-    def _boom(*a, **kw):
-        raise AssertionError("should not call network")
-
-    monkeypatch.setattr(httpx, "AsyncClient", _boom)
-    assert await svc.search_open5e("   ") == []
+async def test_browse_pagination_num_pages(monkeypatch):
+    resp = _FakeResp({"count": 45, "results": []})
+    monkeypatch.setattr(httpx, "AsyncClient", _fake_client_factory(resp))
+    out = await svc.browse_open5e(page=2)
+    assert out["count"] == 45
+    assert out["page"] == 2
+    assert out["num_pages"] == 3  # ceil(45/20)
 
 
 async def test_import_monster_creates(monkeypatch):
@@ -126,3 +129,21 @@ async def test_import_monster_404(monkeypatch):
     resp = _FakeResp(None, status_code=404)
     monkeypatch.setattr(httpx, "AsyncClient", _fake_client_factory(resp))
     assert await svc.import_monster("nonexistent") is None
+
+
+async def test_import_many(monkeypatch):
+    resp = _FakeResp(_GOBLIN)  # every fetch returns goblin payload
+    monkeypatch.setattr(httpx, "AsyncClient", _fake_client_factory(resp))
+    # goblin imports; the model has a unique-ish slug so re-listing same slug
+    # twice still lands in imported (idempotent create returns existing)
+    out = await svc.import_many(["goblin", "goblin"])
+    assert out["imported"] == ["goblin", "goblin"]
+    assert out["failed"] == []
+
+
+async def test_import_many_handles_404(monkeypatch):
+    resp = _FakeResp(None, status_code=404)
+    monkeypatch.setattr(httpx, "AsyncClient", _fake_client_factory(resp))
+    out = await svc.import_many(["ghost"])
+    assert out["imported"] == []
+    assert out["failed"] == ["ghost"]

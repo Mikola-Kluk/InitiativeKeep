@@ -1,9 +1,12 @@
+import math
+
 import httpx
 
 from app.config import settings
 from app.models.monster import Monster
 
 _USER_AGENT = "InitiativeKeep/1.0"
+_PAGE_SIZE = 20
 
 
 def _map_open5e_to_fields(m: dict) -> dict:
@@ -34,27 +37,66 @@ def _map_open5e_to_fields(m: dict) -> dict:
     }
 
 
-async def search_open5e(query: str, limit: int = 10) -> list[dict]:
-    """Search Open5e monsters. Returns lightweight rows for a picker."""
-    if not query.strip():
-        return []
+def _light_row(m: dict) -> dict:
+    return {
+        "slug": m["slug"],
+        "name": m["name"],
+        "type": m.get("type"),
+        "challenge_rating": m.get("challenge_rating"),
+        "cr": m.get("cr"),
+        "hit_points": m.get("hit_points"),
+        "document": m.get("document__slug"),
+    }
+
+
+async def browse_open5e(
+    query: str | None = None,
+    cr: str | None = None,
+    type: str | None = None,
+    document: str | None = None,
+    page: int = 1,
+    page_size: int = _PAGE_SIZE,
+) -> dict:
+    """Paginated, filtered browse of Open5e monsters. Returns light rows for a picker."""
+    params: dict = {"limit": page_size, "page": max(page, 1), "ordering": "name"}
+    if query and query.strip():
+        params["search"] = query.strip()
+    if cr is not None and cr != "":
+        params["cr"] = cr
+    if type:
+        params["type"] = type
+    if document:
+        params["document__slug"] = document
+
     async with httpx.AsyncClient(headers={"User-Agent": _USER_AGENT}) as client:
         resp = await client.get(
-            f"{settings.OPEN5E_BASE_URL}/v1/monsters/",
-            params={"search": query, "limit": limit},
+            f"{settings.OPEN5E_BASE_URL}/v1/monsters/", params=params, timeout=15
+        )
+    resp.raise_for_status()
+    data = resp.json()
+    count = data.get("count", 0)
+    return {
+        "count": count,
+        "page": params["page"],
+        "num_pages": max(1, math.ceil(count / page_size)) if count else 1,
+        "results": [_light_row(m) for m in data.get("results", [])],
+    }
+
+
+async def list_sources() -> list[dict]:
+    """List Open5e document sources (for a filter dropdown)."""
+    async with httpx.AsyncClient(headers={"User-Agent": _USER_AGENT}) as client:
+        resp = await client.get(
+            f"{settings.OPEN5E_BASE_URL}/v1/documents/",
+            params={"limit": 50},
             timeout=15,
         )
     resp.raise_for_status()
     data = resp.json()
     return [
-        {
-            "slug": m["slug"],
-            "name": m["name"],
-            "type": m.get("type"),
-            "challenge_rating": m.get("challenge_rating"),
-            "hit_points": m.get("hit_points"),
-        }
-        for m in data.get("results", [])
+        {"slug": d.get("slug"), "name": d.get("name") or d.get("title")}
+        for d in data.get("results", [])
+        if d.get("slug")
     ]
 
 
@@ -71,3 +113,17 @@ async def import_monster(slug: str) -> Monster | None:
         return None
     resp.raise_for_status()
     return await Monster.create(**_map_open5e_to_fields(resp.json()))
+
+
+async def import_many(slugs: list[str]) -> dict:
+    """Import a batch of slugs. Idempotent per slug. Returns imported/failed lists."""
+    imported: list[str] = []
+    failed: list[str] = []
+    for slug in slugs:
+        try:
+            monster = await import_monster(slug)
+        except httpx.HTTPError:
+            failed.append(slug)
+            continue
+        (imported if monster else failed).append(slug)
+    return {"imported": imported, "failed": failed}
