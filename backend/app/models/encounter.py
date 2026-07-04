@@ -44,7 +44,12 @@ class Combatant(Model):
     current_hp = fields.IntField(default=1)
     temp_hp = fields.IntField(default=0)
 
-    conditions = fields.JSONField(default=list)  # ["poisoned", "prone", ...]
+    conditions = fields.JSONField(default=list)  # [{"name": "poisoned", "rounds": 2|None}, ...]
+    concentrating = fields.BooleanField(default=False)
+
+    # legendary actions (bosses): pool refills at the start of the creature's turn
+    legendary_actions_max = fields.IntField(default=0)
+    legendary_actions_remaining = fields.IntField(default=0)
 
     created_at = fields.DatetimeField(auto_now_add=True)
 

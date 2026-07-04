@@ -25,6 +25,9 @@ class MonsterBase(BaseModel):
 
     traits: list = Field(default_factory=list)
     actions: list = Field(default_factory=list)
+    reactions: list = Field(default_factory=list)
+    legendary_desc: str | None = None
+    legendary_actions: list = Field(default_factory=list)
 
 
 class MonsterCreate(MonsterBase):
@@ -51,6 +54,9 @@ class MonsterUpdate(BaseModel):
     cr: float | None = None
     traits: list | None = None
     actions: list | None = None
+    reactions: list | None = None
+    legendary_desc: str | None = None
+    legendary_actions: list | None = None
 
 
 class MonsterOut(MonsterBase):

@@ -14,11 +14,17 @@ Run encounters, track HP and conditions, and pull from 3200+ monster statblocks 
 
 ## ✨ Features
 
-- **🎲 Combat tracker** — initiative order, round counter, next/prev turn, per-combatant HP bars, damage/heal, temp HP, and conditions.
+- **🎲 Combat tracker** — initiative order, round counter, next/prev turn, per-combatant HP bars, damage/heal, and temp HP (damage burns temp HP first).
+- **🧠 Concentration** — flag a concentrating creature; when it takes damage the tracker shows the CON save DC (`max(10, dmg/2)`).
+- **⏳ Timed conditions** — give any condition a duration in rounds; it counts down at the end of each round and expires on its own (or leave it open-ended).
+- **👑 Legendary actions** — bosses get a clickable 3-orb pool that refills at the start of their turn; statblocks show reactions and legendary actions.
+- **⚖️ Difficulty calculator** — set party size and level, get the encounter's XP total rated against the D&D 2024 Low/Moderate/High budgets live as you add monsters.
+- **🐺 Pack spawning** — add N copies of a monster at once; duplicates are auto-numbered (`Wolf (1)`, `Wolf (2)`, …).
 - **🐉 Monster library** — browse and filter [Open5e](https://open5e.com)'s 3200+ statblocks by CR, type, or source; import one at a time or in bulk.
 - **🛠️ Homebrew** — create and manage your own statblocks alongside imported ones.
 - **📜 Auto rolls** — on combat start, NPCs roll initiative (`d20 + DEX`) and reroll HP from their hit dice; PCs keep the numbers you typed.
 - **📖 Statblock detail** — full modal view: abilities, AC/HP/CR, speed, traits, and actions.
+- **📱 Responsive** — works on phone and tablet: combatant cards reflow, tables scroll, and the condition picker is tap-friendly.
 - **🐳 One-command run** — Docker builds the SPA and serves it from the API with a persistent SQLite volume.
 
 ## 🚀 Quick start (Docker)

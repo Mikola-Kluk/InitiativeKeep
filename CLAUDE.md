@@ -75,7 +75,12 @@ calls live in services.
 - **Encounter** — one combat. `round` (starts 1), `current_turn_index` (index into the
   initiative-sorted combatant list; `-1` = combat not started).
 - **Combatant** — a participant. Optional FK to a Monster (spawns from statblock) or a plain PC.
-  Tracks `initiative`, `current_hp`/`max_hp`/`temp_hp`, `conditions` (JSON list).
+  Tracks `initiative`, `current_hp`/`max_hp`/`temp_hp`, `concentrating`,
+  `conditions` (JSON list of `{"name", "rounds": int|null}`; timed ones tick down at end of
+  round in `next_turn`, legacy plain strings are normalized on read), and a legendary action
+  pool (`legendary_actions_max/_remaining`, set to 3 when spawned from a monster that has
+  `legendary_actions`; refills at the start of the creature's turn).
+  `CombatantCreate.count` (1–20) spawns N auto-numbered copies.
 
 Initiative order: highest `initiative` first, `dex_modifier` as tiebreak, unrolled (null) last.
 Sorting is computed in `services/encounter.py` (not a DB order_by) — see `_initiative_key`.

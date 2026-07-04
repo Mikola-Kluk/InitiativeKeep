@@ -33,6 +33,9 @@ class Monster(Model):
 
     traits = fields.JSONField(default=list)  # [{"name","desc"}]
     actions = fields.JSONField(default=list)  # [{"name","desc"}]
+    reactions = fields.JSONField(default=list)  # [{"name","desc"}]
+    legendary_desc = fields.TextField(null=True)
+    legendary_actions = fields.JSONField(default=list)  # [{"name","desc"}]
 
     created_at = fields.DatetimeField(auto_now_add=True)
 

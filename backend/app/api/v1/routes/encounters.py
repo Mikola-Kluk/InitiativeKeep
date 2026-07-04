@@ -81,6 +81,14 @@ async def start_combat(encounter_id: int):
     return result
 
 
+@router.post("/{encounter_id}/end", response_model=EncounterOut)
+async def end_combat(encounter_id: int):
+    result = await encounter_service.end_combat(encounter_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Encounter not found")
+    return result
+
+
 @router.post("/{encounter_id}/next-turn", response_model=EncounterOut)
 async def next_turn(encounter_id: int):
     result = await encounter_service.next_turn(encounter_id)

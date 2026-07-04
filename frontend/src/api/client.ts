@@ -26,7 +26,15 @@ export interface Monster {
   cr: number | null
   traits: { name: string; desc: string }[]
   actions: { name: string; desc: string }[]
+  reactions: { name: string; desc: string }[]
+  legendary_desc: string | null
+  legendary_actions: { name: string; desc: string }[]
   dex_modifier: number
+}
+
+export interface ConditionEntry {
+  name: string
+  rounds: number | null // remaining rounds; null = until removed
 }
 
 export interface Combatant {
@@ -40,7 +48,10 @@ export interface Combatant {
   max_hp: number
   current_hp: number
   temp_hp: number
-  conditions: string[]
+  conditions: ConditionEntry[]
+  concentrating: boolean
+  legendary_actions_max: number
+  legendary_actions_remaining: number
 }
 
 export interface Encounter {
@@ -136,7 +147,7 @@ export const api = {
       request<Encounter>('/encounters/', { method: 'POST', body: JSON.stringify({ name }) }),
     remove: (id: number) =>
       request<void>(`/encounters/${id}`, { method: 'DELETE' }),
-    addCombatant: (id: number, body: Partial<Combatant> & { monster_id?: number }) =>
+    addCombatant: (id: number, body: Partial<Combatant> & { monster_id?: number; count?: number }) =>
       request<Encounter>(`/encounters/${id}/combatants`, {
         method: 'POST',
         body: JSON.stringify(body),
@@ -149,6 +160,7 @@ export const api = {
     removeCombatant: (id: number, cid: number) =>
       request<Encounter>(`/encounters/${id}/combatants/${cid}`, { method: 'DELETE' }),
     start: (id: number) => request<Encounter>(`/encounters/${id}/start`, { method: 'POST' }),
+    end: (id: number) => request<Encounter>(`/encounters/${id}/end`, { method: 'POST' }),
     nextTurn: (id: number) => request<Encounter>(`/encounters/${id}/next-turn`, { method: 'POST' }),
     prevTurn: (id: number) => request<Encounter>(`/encounters/${id}/prev-turn`, { method: 'POST' }),
   },

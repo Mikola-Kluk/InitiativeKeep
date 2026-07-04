@@ -34,6 +34,9 @@ def _map_open5e_to_fields(m: dict) -> dict:
         "cr": m.get("cr"),
         "traits": m.get("special_abilities") or [],
         "actions": m.get("actions") or [],
+        "reactions": m.get("reactions") or [],
+        "legendary_desc": m.get("legendary_desc") or None,
+        "legendary_actions": m.get("legendary_actions") or [],
     }
 
 

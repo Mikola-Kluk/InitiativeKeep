@@ -45,6 +45,8 @@ export default function MonsterDetail({
               {[m.size, m.type, m.alignment].filter(Boolean).join(' · ')}
             </p>
 
+            <hr className="sb-rule" />
+
             <div className="sb-line">
               <span><b>AC</b> {m.armor_class}{m.armor_desc ? ` (${m.armor_desc})` : ''}</span>
               <span><b>HP</b> {m.hit_points}{m.hit_dice ? ` (${m.hit_dice})` : ''}</span>
@@ -57,6 +59,8 @@ export default function MonsterDetail({
                 {Object.entries(m.speed).map(([k, v]) => `${k} ${v} ft.`).join(', ')}
               </p>
             )}
+
+            <hr className="sb-rule" />
 
             <div className="abilities">
               {ABILITIES.map(([key, label]) => {
@@ -83,6 +87,25 @@ export default function MonsterDetail({
               <div className="sb-section">
                 <h3>Actions</h3>
                 {m.actions.map((a, i) => (
+                  <p key={i}><b>{a.name}.</b> {a.desc}</p>
+                ))}
+              </div>
+            )}
+
+            {(m.reactions ?? []).length > 0 && (
+              <div className="sb-section">
+                <h3>Reactions</h3>
+                {m.reactions.map((r, i) => (
+                  <p key={i}><b>{r.name}.</b> {r.desc}</p>
+                ))}
+              </div>
+            )}
+
+            {((m.legendary_actions ?? []).length > 0 || m.legendary_desc) && (
+              <div className="sb-section">
+                <h3>Legendary Actions</h3>
+                {m.legendary_desc && <p className="muted">{m.legendary_desc}</p>}
+                {(m.legendary_actions ?? []).map((a, i) => (
                   <p key={i}><b>{a.name}.</b> {a.desc}</p>
                 ))}
               </div>

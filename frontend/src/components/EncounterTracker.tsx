@@ -1,6 +1,25 @@
-import { useCallback, useEffect, useState } from 'react'
-import { api, type Combatant, type Encounter, type Monster } from '../api/client'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { api, type Combatant, type ConditionEntry, type Encounter, type Monster } from '../api/client'
 import MonsterDetail from './MonsterDetail'
+
+// D&D 2024 DMG: XP budget per character [Low, Moderate, High] by level.
+const XP_BUDGET: Record<number, [number, number, number]> = {
+  1: [50, 75, 100], 2: [100, 150, 200], 3: [150, 225, 400], 4: [250, 375, 500],
+  5: [500, 750, 1100], 6: [600, 1000, 1400], 7: [750, 1300, 1700], 8: [1000, 1700, 2100],
+  9: [1300, 2000, 2600], 10: [1600, 2300, 3100], 11: [1900, 2900, 4100], 12: [2200, 3700, 4700],
+  13: [2600, 4200, 5400], 14: [2900, 4900, 6200], 15: [3300, 5400, 7800], 16: [3800, 6100, 9800],
+  17: [4500, 7200, 11700], 18: [5000, 8700, 14200], 19: [5500, 10700, 17200], 20: [6400, 13200, 22000],
+}
+
+// XP value by numeric CR (Monster.cr).
+const CR_XP: Record<string, number> = {
+  '0': 10, '0.125': 25, '0.25': 50, '0.5': 100,
+  '1': 200, '2': 450, '3': 700, '4': 1100, '5': 1800, '6': 2300, '7': 2900, '8': 3900,
+  '9': 5000, '10': 5900, '11': 7200, '12': 8400, '13': 10000, '14': 11500, '15': 13000,
+  '16': 15000, '17': 18000, '18': 20000, '19': 22000, '20': 25000, '21': 33000, '22': 41000,
+  '23': 50000, '24': 62000, '25': 75000, '26': 90000, '27': 105000, '28': 120000,
+  '29': 135000, '30': 155000,
+}
 
 // D&D 2024 (5.5e) conditions — short rules summaries shown in the picker.
 const CONDITION_INFO: Record<string, string> = {
@@ -61,10 +80,21 @@ export default function EncounterTracker({
       {error && <p className="error">{error}</p>}
 
       <div className="row controls">
-        <button onClick={() => ctrl(() => api.encounters.start(enc.id))}>▶ Start</button>
+        {started ? (
+          <button
+            className="danger"
+            onClick={() => { if (confirm('End combat? Turn order resets; HP and conditions are kept.')) ctrl(() => api.encounters.end(enc.id)) }}
+          >
+            ⏹ End
+          </button>
+        ) : (
+          <button onClick={() => ctrl(() => api.encounters.start(enc.id))}>▶ Start</button>
+        )}
         <button disabled={!started} onClick={() => ctrl(() => api.encounters.prevTurn(enc.id))}>◀ Prev</button>
         <button disabled={!started} onClick={() => ctrl(() => api.encounters.nextTurn(enc.id))}>Next ▶</button>
       </div>
+
+      <DifficultyPanel enc={enc} monsters={monsters} />
 
       {enc.combatants.length === 0 && <p className="muted">No combatants — add some below.</p>}
 
@@ -89,6 +119,57 @@ export default function EncounterTracker({
   )
 }
 
+// D&D 2024 encounter difficulty: sum monster XP (by CR) vs the party's XP budget.
+function DifficultyPanel({ enc, monsters }: { enc: Encounter; monsters: Monster[] }) {
+  const [size, setSize] = useState(() => localStorage.getItem('ik-party-size') ?? '4')
+  const [level, setLevel] = useState(() => localStorage.getItem('ik-party-level') ?? '3')
+  useEffect(() => { localStorage.setItem('ik-party-size', size) }, [size])
+  useEffect(() => { localStorage.setItem('ik-party-level', level) }, [level])
+
+  const byId = new Map(monsters.map((m) => [m.id, m]))
+  let xp = 0
+  let noCr = 0
+  for (const c of enc.combatants) {
+    if (c.is_pc) continue
+    const cr = c.monster_id !== null ? byId.get(c.monster_id)?.cr : null
+    const value = cr !== null && cr !== undefined ? CR_XP[String(cr)] : undefined
+    if (value === undefined) noCr++
+    else xp += value
+  }
+
+  const n = Math.max(1, parseInt(size, 10) || 1)
+  const lvl = Math.min(20, Math.max(1, parseInt(level, 10) || 1))
+  const [low, moderate, high] = XP_BUDGET[lvl]
+  const [bLow, bMod, bHigh] = [low * n, moderate * n, high * n]
+  const label =
+    xp === 0 ? null : xp <= bLow ? 'Low' : xp <= bMod ? 'Moderate' : xp <= bHigh ? 'High' : 'Deadly'
+  const cls = label === 'Low' ? 'ok' : label === 'Moderate' ? 'warn' : label ? 'crit' : ''
+
+  return (
+    <div className="row difficulty">
+      <span className="muted">Party</span>
+      <input
+        type="number" min={1} value={size} title="Party size"
+        onChange={(e) => setSize(e.target.value)} style={{ width: 56 }}
+      />
+      <span className="muted">× level</span>
+      <input
+        type="number" min={1} max={20} value={level} title="Party level"
+        onChange={(e) => setLevel(e.target.value)} style={{ width: 56 }}
+      />
+      {label ? (
+        <span className="diff-result">
+          {xp} XP → <b className={`diff ${cls}`}>{label}</b>
+          <span className="muted"> · budget: Low {bLow} / Moderate {bMod} / High {bHigh}</span>
+          {noCr > 0 && <span className="muted"> · {noCr} without CR skipped</span>}
+        </span>
+      ) : (
+        <span className="muted">no monsters with CR yet</span>
+      )}
+    </div>
+  )
+}
+
 function CombatantRow({
   c, active, encounterId, onChange, onError, onShowDetail,
 }: {
@@ -100,6 +181,7 @@ function CombatantRow({
   onShowDetail: (monsterId: number) => void
 }) {
   const [delta, setDelta] = useState('')
+  const [concDc, setConcDc] = useState<number | null>(null)
 
   async function patch(body: Partial<Combatant>) {
     try { onChange(await api.encounters.updateCombatant(encounterId, c.id, body)) }
@@ -108,17 +190,35 @@ function CombatantRow({
 
   function applyHp(sign: number) {
     const n = parseInt(delta, 10)
-    if (isNaN(n)) return
-    const next = Math.max(0, Math.min(c.max_hp, c.current_hp + sign * n))
+    if (isNaN(n) || n <= 0) return
     setDelta('')
-    patch({ current_hp: next })
+    if (sign < 0) {
+      // damage eats temp HP first, remainder hits current HP
+      const fromTemp = Math.min(c.temp_hp, n)
+      const rest = n - fromTemp
+      patch({ temp_hp: c.temp_hp - fromTemp, current_hp: Math.max(0, c.current_hp - rest) })
+      if (c.concentrating) setConcDc(Math.max(10, Math.floor(n / 2)))
+    } else {
+      patch({ current_hp: Math.min(c.max_hp, c.current_hp + n) })
+    }
+  }
+
+  function setTempHp() {
+    const n = parseInt(delta, 10)
+    if (isNaN(n) || n < 0) return
+    setDelta('')
+    patch({ temp_hp: n })
   }
 
   function toggleCond(name: string) {
-    const next = c.conditions.includes(name)
-      ? c.conditions.filter((x) => x !== name)
-      : [...c.conditions, name]
+    const next = c.conditions.some((x) => x.name === name)
+      ? c.conditions.filter((x) => x.name !== name)
+      : [...c.conditions, { name, rounds: null }]
     patch({ conditions: next })
+  }
+
+  function setCondRounds(name: string, rounds: number | null) {
+    patch({ conditions: c.conditions.map((x) => (x.name === name ? { ...x, rounds } : x)) })
   }
 
   const hpPct = c.max_hp > 0 ? (c.current_hp / c.max_hp) * 100 : 0
@@ -147,7 +247,35 @@ function CombatantRow({
         <span className="tags">
           {c.is_pc ? <span className="tag pc">PC</span> : <span className="tag npc">NPC</span>}
           <span className="tag">AC {c.armor_class}</span>
+          <button
+            className={`tag conc ${c.concentrating ? 'on' : ''}`}
+            title="Concentration — toggle; taking damage shows the CON save DC"
+            onClick={() => { setConcDc(null); patch({ concentrating: !c.concentrating }) }}
+          >
+            ✦ conc
+          </button>
         </span>
+        {c.legendary_actions_max > 0 && (
+          <span className="la" title="Legendary actions — click orb to spend/restore; refills at the start of its turn">
+            <span className="la-label">LA</span>
+            {Array.from({ length: c.legendary_actions_max }, (_, i) => (
+              <button
+                key={i}
+                className={`la-orb ${i < c.legendary_actions_remaining ? 'full' : ''}`}
+                onClick={() => patch({
+                  legendary_actions_remaining: i < c.legendary_actions_remaining ? i : i + 1,
+                })}
+              >
+                {i < c.legendary_actions_remaining ? '●' : '○'}
+              </button>
+            ))}
+          </span>
+        )}
+        {concDc !== null && (
+          <button className="conc-alert" onClick={() => setConcDc(null)}>
+            ✦ Concentration check — CON save DC {concDc} ✕
+          </button>
+        )}
       </div>
 
       <div className="hp">
@@ -163,21 +291,22 @@ function CombatantRow({
           />
           <button className="danger" onClick={() => applyHp(-1)}>Dmg</button>
           <button className="heal" onClick={() => applyHp(1)}>Heal</button>
+          <button className="temp" title="Set temp HP to this value" onClick={setTempHp}>Temp</button>
         </div>
       </div>
 
       <div className="conds">
         {c.conditions.map((cd) => (
           <button
-            key={cd}
+            key={cd.name}
             className="chip"
-            title={CONDITION_INFO[cd] ?? cd}
-            onClick={() => toggleCond(cd)}
+            title={CONDITION_INFO[cd.name] ?? cd.name}
+            onClick={() => toggleCond(cd.name)}
           >
-            {cd} ✕
+            {cd.name}{cd.rounds !== null ? ` ·${cd.rounds}` : ''} ✕
           </button>
         ))}
-        <ConditionMenu selected={c.conditions} onToggle={toggleCond} />
+        <ConditionMenu selected={c.conditions} onToggle={toggleCond} onSetRounds={setCondRounds} />
       </div>
 
       <button
@@ -190,32 +319,63 @@ function CombatantRow({
   )
 }
 
-// Hover-to-open picker: toggle any number of conditions, each row shows its rules text.
+// Click-to-open picker (works on touch): toggle any number of conditions,
+// each row shows its rules text; active ones get a rounds input (empty = until removed).
+// Closes on outside click / Escape.
 function ConditionMenu({
-  selected, onToggle,
+  selected, onToggle, onSetRounds,
 }: {
-  selected: string[]
+  selected: ConditionEntry[]
   onToggle: (name: string) => void
+  onSetRounds: (name: string, rounds: number | null) => void
 }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
   return (
-    <div className="cond-menu">
-      <button type="button" className="cond-add">＋ Status</button>
+    <div className={`cond-menu ${open ? 'open' : ''}`} ref={ref}>
+      <button type="button" className="cond-add" onClick={() => setOpen((o) => !o)}>＋ Status</button>
       <div className="cond-panel">
         {CONDITIONS.map((name) => {
-          const on = selected.includes(name)
+          const entry = selected.find((x) => x.name === name)
+          const on = entry !== undefined
           return (
-            <button
-              key={name}
-              type="button"
-              className={`cond-opt ${on ? 'on' : ''}`}
-              onClick={() => onToggle(name)}
-            >
-              <span className="cond-check">{on ? '☑' : '☐'}</span>
-              <span className="cond-body">
-                <span className="cond-name">{name}</span>
-                <span className="cond-desc">{CONDITION_INFO[name]}</span>
-              </span>
-            </button>
+            <div key={name} className={`cond-opt ${on ? 'on' : ''}`}>
+              <button type="button" className="cond-toggle" onClick={() => onToggle(name)}>
+                <span className="cond-check">{on ? '☑' : '☐'}</span>
+                <span className="cond-body">
+                  <span className="cond-name">{name}</span>
+                  <span className="cond-desc">{CONDITION_INFO[name]}</span>
+                </span>
+              </button>
+              {on && (
+                <input
+                  type="number"
+                  min={1}
+                  className="cond-rounds"
+                  placeholder="∞"
+                  title="Rounds remaining (empty = until removed); ticks down at end of round"
+                  value={entry.rounds ?? ''}
+                  onChange={(e) =>
+                    onSetRounds(name, e.target.value === '' ? null : Math.max(1, Number(e.target.value)))
+                  }
+                />
+              )}
+            </div>
           )
         })}
       </div>
@@ -237,6 +397,7 @@ function AddCombatant({
   const [ac, setAc] = useState('')
   const [init, setInit] = useState('')
   const [monsterId, setMonsterId] = useState<number | ''>('')
+  const [count, setCount] = useState('1')
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -244,7 +405,8 @@ function AddCombatant({
       const initiative = init === '' ? null : Number(init)
       if (mode === 'monster') {
         if (monsterId === '') return
-        onAdded(await api.encounters.addCombatant(encounterId, { monster_id: Number(monsterId), initiative }))
+        const n = Math.min(20, Math.max(1, parseInt(count, 10) || 1))
+        onAdded(await api.encounters.addCombatant(encounterId, { monster_id: Number(monsterId), initiative, count: n }))
       } else {
         if (!name.trim()) return
         onAdded(await api.encounters.addCombatant(encounterId, {
@@ -255,7 +417,7 @@ function AddCombatant({
           armor_class: ac ? Number(ac) : 10,
         }))
       }
-      setName(''); setHp(''); setAc(''); setInit(''); setMonsterId('')
+      setName(''); setHp(''); setAc(''); setInit(''); setMonsterId(''); setCount('1')
     } catch (err) {
       onError((err as Error).message)
     }
@@ -269,12 +431,19 @@ function AddCombatant({
       </div>
       <div className="row">
         {mode === 'monster' ? (
-          <select value={monsterId} onChange={(e) => setMonsterId(e.target.value === '' ? '' : Number(e.target.value))}>
-            <option value="">— pick imported monster —</option>
-            {monsters.map((m) => (
-              <option key={m.id} value={m.id}>{m.name} (HP {m.hit_points}, AC {m.armor_class})</option>
-            ))}
-          </select>
+          <>
+            <select value={monsterId} onChange={(e) => setMonsterId(e.target.value === '' ? '' : Number(e.target.value))}>
+              <option value="">— pick imported monster —</option>
+              {monsters.map((m) => (
+                <option key={m.id} value={m.id}>{m.name} (HP {m.hit_points}, AC {m.armor_class})</option>
+              ))}
+            </select>
+            <input
+              type="number" min={1} max={20} value={count} title="How many copies to add"
+              onChange={(e) => setCount(e.target.value)} style={{ width: 60 }}
+            />
+            <span className="muted">×</span>
+          </>
         ) : (
           <>
             <input placeholder="PC name" value={name} onChange={(e) => setName(e.target.value)} />

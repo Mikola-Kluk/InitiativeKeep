@@ -43,6 +43,19 @@ async def _dedupe_name(encounter_id: int, base: str) -> str:
     return f"{base} ({(max(used) + 1) if used else len(siblings) + 1})"
 
 
+def _normalize_conditions(raw: list) -> list[dict]:
+    """Accept legacy plain strings and dicts; always return [{"name", "rounds"}].
+    rounds = remaining rounds (int) or None for indefinite."""
+    out: list[dict] = []
+    for item in raw or []:
+        if isinstance(item, str):
+            out.append({"name": item, "rounds": None})
+        elif isinstance(item, dict) and item.get("name"):
+            rounds = item.get("rounds")
+            out.append({"name": item["name"], "rounds": int(rounds) if rounds is not None else None})
+    return out
+
+
 def _initiative_key(c: Combatant) -> tuple:
     """Sort key: highest initiative first, dex modifier as tiebreak. Unrolled last."""
     rolled = c.initiative is not None
@@ -51,6 +64,8 @@ def _initiative_key(c: Combatant) -> tuple:
 
 async def _sorted_combatants(encounter_id: int) -> list[Combatant]:
     combatants = await Combatant.filter(encounter_id=encounter_id)
+    for c in combatants:
+        c.conditions = _normalize_conditions(c.conditions)
     combatants.sort(key=_initiative_key, reverse=True)
     return combatants
 
@@ -141,12 +156,18 @@ async def add_combatant(encounter_id: int, data: CombatantCreate) -> dict | None
         fields["armor_class"] = data.armor_class or monster.armor_class
         fields["max_hp"] = data.max_hp or monster.hit_points
         fields["current_hp"] = data.current_hp if data.current_hp is not None else (data.max_hp or monster.hit_points)
+        if monster.legendary_actions:
+            # 5e default: 3 legendary actions per round
+            fields["legendary_actions_max"] = 3
+            fields["legendary_actions_remaining"] = 3
 
     if not fields["name"]:
         return None
 
-    fields["name"] = await _dedupe_name(encounter_id, _base_name(fields["name"]))
-    await Combatant.create(**fields)
+    base = _base_name(fields["name"])
+    for _ in range(data.count):
+        fields["name"] = await _dedupe_name(encounter_id, base)
+        await Combatant.create(**fields)
     return await get_encounter(encounter_id)
 
 
@@ -157,6 +178,8 @@ async def update_combatant(
     if not combatant:
         return None
     update_data = data.model_dump(exclude_unset=True)
+    if "conditions" in update_data:
+        update_data["conditions"] = _normalize_conditions(update_data["conditions"])
     if update_data:
         combatant.update_from_dict(update_data)
         await combatant.save(update_fields=list(update_data.keys()))
@@ -171,6 +194,31 @@ async def remove_combatant(encounter_id: int, combatant_id: int) -> dict | None:
 
 
 # ---- Combat control ----
+
+async def _tick_condition_durations(encounter_id: int) -> None:
+    """End of round: count down timed conditions, drop the ones that expire."""
+    for c in await Combatant.filter(encounter_id=encounter_id):
+        raw = c.conditions or []
+        ticked = []
+        for cond in _normalize_conditions(raw):
+            if cond["rounds"] is None:
+                ticked.append(cond)
+            elif cond["rounds"] > 1:
+                ticked.append({"name": cond["name"], "rounds": cond["rounds"] - 1})
+        if ticked != raw:
+            c.conditions = ticked
+            await c.save(update_fields=["conditions"])
+
+
+async def _refill_legendary(encounter_id: int, turn_index: int) -> None:
+    """Legendary action pool refills at the start of the creature's own turn."""
+    combatants = await _sorted_combatants(encounter_id)
+    if 0 <= turn_index < len(combatants):
+        c = combatants[turn_index]
+        if c.legendary_actions_max and c.legendary_actions_remaining != c.legendary_actions_max:
+            c.legendary_actions_remaining = c.legendary_actions_max
+            await c.save(update_fields=["legendary_actions_remaining"])
+
 
 async def start_combat(encounter_id: int) -> dict | None:
     """Begin combat: roll initiative + HP for NPCs, order by initiative, start at top.
@@ -194,11 +242,28 @@ async def start_combat(encounter_id: int) -> dict | None:
             c.max_hp = hp
             c.current_hp = hp
             changed += ["max_hp", "current_hp"]
+        if c.legendary_actions_max and c.legendary_actions_remaining != c.legendary_actions_max:
+            c.legendary_actions_remaining = c.legendary_actions_max
+            changed.append("legendary_actions_remaining")
         if changed:
             await c.save(update_fields=changed)
 
     encounter.round = 1
     encounter.current_turn_index = 0 if combatants else -1
+    await encounter.save(update_fields=["round", "current_turn_index"])
+    return await get_encounter(encounter_id)
+
+
+async def end_combat(encounter_id: int) -> dict | None:
+    """End combat: reset to the not-started state (round 1, no active turn).
+
+    HP and conditions are left untouched so the aftermath is preserved.
+    """
+    encounter = await Encounter.get_or_none(id=encounter_id)
+    if not encounter:
+        return None
+    encounter.round = 1
+    encounter.current_turn_index = -1
     await encounter.save(update_fields=["round", "current_turn_index"])
     return await get_encounter(encounter_id)
 
@@ -218,7 +283,9 @@ async def next_turn(encounter_id: int) -> dict | None:
         if encounter.current_turn_index >= count:
             encounter.current_turn_index = 0
             encounter.round += 1
+            await _tick_condition_durations(encounter_id)
     await encounter.save(update_fields=["round", "current_turn_index"])
+    await _refill_legendary(encounter_id, encounter.current_turn_index)
     return await get_encounter(encounter_id)
 
 

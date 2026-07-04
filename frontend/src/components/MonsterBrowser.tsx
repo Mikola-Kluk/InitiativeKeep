@@ -65,6 +65,7 @@ function Open5eBrowser() {
       {data && (
         <>
           <p className="muted">{data.count} results · page {data.page}/{data.num_pages}</p>
+          <div className="table-scroll">
           <table className="grid">
             <thead>
               <tr><th>Name</th><th>Type</th><th>CR</th><th>HP</th><th>Source</th><th></th></tr>
@@ -89,6 +90,7 @@ function Open5eBrowser() {
               ))}
             </tbody>
           </table>
+          </div>
           <div className="row">
             <button disabled={data.page <= 1} onClick={() => search(page - 1)}>← Prev</button>
             <button disabled={data.page >= data.num_pages} onClick={() => search(page + 1)}>Next →</button>
@@ -155,6 +157,7 @@ function Library() {
         </div>
       )}
 
+      <div className="table-scroll">
       <table className="grid">
         <thead><tr><th>Name</th><th>Type</th><th>CR</th><th>HP</th><th>AC</th><th>Source</th><th></th></tr></thead>
         <tbody>
@@ -173,6 +176,7 @@ function Library() {
           ))}
         </tbody>
       </table>
+      </div>
 
       {detailId !== null && <MonsterDetail monsterId={detailId} onClose={() => setDetailId(null)} />}
     </div>

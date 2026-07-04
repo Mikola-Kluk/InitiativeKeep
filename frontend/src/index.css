@@ -1,12 +1,50 @@
 :root {
   font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color-scheme: dark;
+  color-scheme: light;
+
+  /* ── parchment / rulebook theme ────────────────────────────── */
+  --bg:        #e5d9bb;   /* page — mid parchment */
+  --surface:   #f3ead4;   /* card / panel — laid paper */
+  --surface-2: #ede1c5;   /* inputs / inset */
+  --surface-3: #e2d4b2;   /* chips / tag ground */
+  --border:    #d2bf96;
+  --border-2:  #c0a878;
+
+  --ink:      #2c2013;   /* body text */
+  --ink-dim:  #5b4a31;
+  --muted:    #897655;
+
+  --accent:      #9a2b1e;   /* PHB crimson — primary */
+  --accent-soft: #b8422f;
+  --accent-deep: #7a2015;
+  --accent-glow: rgba(154, 43, 30, 0.18);
+
+  --crimson:     #9a2b1e;
+  --crimson-deep:#7a2015;
+  --gold:        #a9791f;   /* legendary / trim */
+  --gold-lt:     #c79632;
+
+  --ok:   #3f8f4f;
+  --warn: #bf861c;
+  --crit: #b3231b;
+
+  --radius: 9px;
+  --shadow: 0 8px 24px rgba(74, 54, 24, 0.18);
+  --shadow-sm: 0 1px 2px rgba(74, 54, 24, 0.12);
+
+  /* serif for the rulebook feel */
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  background: #14151a;
-  color: #e6e6e6;
+  color: var(--ink);
+  font-family: var(--serif);
+  background:
+    radial-gradient(1000px 640px at 82% -10%, rgba(154, 43, 30, 0.06), transparent 60%),
+    radial-gradient(880px 560px at 4% 108%, rgba(169, 121, 31, 0.08), transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
 }

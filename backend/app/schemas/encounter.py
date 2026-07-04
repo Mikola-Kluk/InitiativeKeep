@@ -13,6 +13,7 @@ class CombatantCreate(BaseModel):
     armor_class: int | None = Field(default=None, ge=0)
     max_hp: int | None = Field(default=None, ge=1)
     current_hp: int | None = Field(default=None, ge=0)
+    count: int = Field(default=1, ge=1, le=20)  # spawn N copies (monsters)
 
 
 class CombatantUpdate(BaseModel):
@@ -24,6 +25,8 @@ class CombatantUpdate(BaseModel):
     current_hp: int | None = Field(default=None, ge=0)
     temp_hp: int | None = Field(default=None, ge=0)
     conditions: list | None = None
+    concentrating: bool | None = None
+    legendary_actions_remaining: int | None = Field(default=None, ge=0)
 
 
 class CombatantOut(BaseModel):
@@ -38,6 +41,9 @@ class CombatantOut(BaseModel):
     current_hp: int
     temp_hp: int
     conditions: list
+    concentrating: bool
+    legendary_actions_max: int
+    legendary_actions_remaining: int
 
     model_config = {"from_attributes": True}
 
