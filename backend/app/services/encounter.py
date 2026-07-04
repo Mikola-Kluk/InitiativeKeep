@@ -222,10 +222,11 @@ async def _refill_legendary(encounter_id: int, turn_index: int) -> None:
 
 
 async def start_combat(encounter_id: int) -> dict | None:
-    """Begin combat: roll initiative for everyone (each individually) and HP for
-    monsters, order by initiative, start at the top.
+    """Begin combat: roll initiative for anyone who hasn't got one, reroll monster
+    HP, order by initiative, start at the top.
 
-    - Every combatant, PC included: initiative = d20 + dex_modifier
+    - Only combatants with no initiative yet get rolled (d20 + dex_modifier);
+      a value entered during prep is kept.
     - From a statblock (monster_id set) with hit_dice: HP rolled from hit_dice
     PCs keep their entered HP.
     """
@@ -236,8 +237,9 @@ async def start_combat(encounter_id: int) -> dict | None:
     combatants = await Combatant.filter(encounter_id=encounter_id).prefetch_related("monster")
     for c in combatants:
         changed: list[str] = []
-        c.initiative = dice.roll_initiative(c.dex_modifier)
-        changed.append("initiative")
+        if c.initiative is None:
+            c.initiative = dice.roll_initiative(c.dex_modifier)
+            changed.append("initiative")
         if c.monster_id and c.monster and c.monster.hit_dice:
             hp = dice.roll_expr(c.monster.hit_dice, default=c.max_hp)
             c.max_hp = hp

@@ -31,6 +31,28 @@ function encounterMultiplier(monsterCount: number): number {
   return 4
 }
 
+type XpAward = { total: number; perPlayer: number; defeated: number; players: number; noCr: number }
+
+// XP earned when combat ends: only monsters that are actually down (0 HP) count —
+// survivors that fled or were left standing award nothing. Split evenly per PC.
+function defeatedXp(enc: Encounter, monsters: Monster[]): XpAward {
+  const byId = new Map(monsters.map((m) => [m.id, m]))
+  let total = 0
+  let defeated = 0
+  let noCr = 0
+  for (const c of enc.combatants) {
+    if (c.is_pc || c.current_hp !== 0) continue
+    defeated++
+    const cr = c.monster_id !== null ? byId.get(c.monster_id)?.cr : null
+    const value = cr !== null && cr !== undefined ? CR_XP[String(cr)] : undefined
+    if (value === undefined) noCr++
+    else total += value
+  }
+  const players = enc.combatants.filter((c) => c.is_pc).length
+  const perPlayer = players > 0 ? Math.round(total / players) : total
+  return { total, perPlayer, defeated, players, noCr }
+}
+
 // D&D 2024 (5.5e) conditions — short rules summaries shown in the picker.
 const CONDITION_INFO: Record<string, string> = {
   blinded: "Can't see; auto-fail sight checks. Attacks against you have advantage, your attacks have disadvantage.",
@@ -63,6 +85,7 @@ export default function EncounterTracker({
   const [error, setError] = useState<string | null>(null)
   const [detailId, setDetailId] = useState<number | null>(null)
   const [runMode, setRunMode] = useState(false)
+  const [award, setAward] = useState<XpAward | null>(null)
 
   const load = useCallback(() => {
     api.encounters.get(encounterId).then(setEnc).catch((e) => setError(e.message))
@@ -81,11 +104,18 @@ export default function EncounterTracker({
   }
 
   async function runFight() {
-    // prep → launch: roll initiative for everyone, then go fullscreen
+    // prep → launch: roll initiative for anyone missing one, then go fullscreen
     try {
       setEnc(await api.encounters.start(enc!.id))
       setRunMode(true)
     } catch (e) { setError((e as Error).message) }
+  }
+
+  async function endCombat() {
+    // tally XP from downed monsters before the state resets
+    setAward(defeatedXp(enc!, monsters))
+    setRunMode(false)
+    await ctrl(() => api.encounters.end(enc!.id))
   }
 
   if (runMode && started) {
@@ -96,6 +126,7 @@ export default function EncounterTracker({
         onChange={setEnc}
         onError={setError}
         onExit={() => setRunMode(false)}
+        onEnd={endCombat}
       />
     )
   }
@@ -110,28 +141,45 @@ export default function EncounterTracker({
 
       {error && <p className="error">{error}</p>}
 
+      {award && (
+        <div className="xp-award">
+          <span className="xp-title">🏆 Combat over</span>
+          {award.defeated === 0 ? (
+            <span>No monsters were defeated — no XP.</span>
+          ) : (
+            <span>
+              Defeated {award.defeated} · <b>{award.total} XP</b> total →{' '}
+              <b className="xp-per">{award.perPlayer} XP</b> per player
+              {award.players > 0 ? <span className="muted"> ({award.players} {award.players === 1 ? 'player' : 'players'})</span> : <span className="muted"> (no PCs — showing total)</span>}
+              {award.noCr > 0 && <span className="muted"> · {award.noCr} without CR skipped</span>}
+            </span>
+          )}
+          <button className="xp-close" onClick={() => setAward(null)}>✕</button>
+        </div>
+      )}
+
       <div className="row controls">
         {started ? (
           <>
-            <button className="run" onClick={() => setRunMode(true)}>⛶ Prowadź (pełny ekran)</button>
+            <button className="run" onClick={() => setRunMode(true)}>⛶ Run (full screen)</button>
             <button disabled={!started} onClick={() => ctrl(() => api.encounters.prevTurn(enc.id))}>◀ Prev</button>
             <button disabled={!started} onClick={() => ctrl(() => api.encounters.nextTurn(enc.id))}>Next ▶</button>
             <button
               className="danger"
-              onClick={() => { if (confirm('End combat? Turn order resets; HP and conditions are kept.')) ctrl(() => api.encounters.end(enc.id)) }}
+              onClick={() => { if (confirm('End combat? Turn order resets; HP and conditions are kept.')) endCombat() }}
             >
               ⏹ End
             </button>
           </>
         ) : (
           <>
-            <button className="run" onClick={runFight}>⚔ Prowadź walkę</button>
-            <button onClick={() => ctrl(() => api.encounters.start(enc.id))}>▶ Start (tutaj)</button>
+            <button className="run" onClick={runFight}>⚔ Run fight</button>
+            <button onClick={() => ctrl(() => api.encounters.start(enc.id))}>▶ Start (here)</button>
           </>
         )}
       </div>
 
-      {!started && <p className="muted prep-hint">Faza przygotowania — dodaj combatantów, potem „Prowadź walkę” losuje inicjatywę każdemu i otwiera pełny ekran.</p>}
+      {!started && <p className="muted prep-hint">Prep phase — add combatants, then “Run fight” rolls initiative for everyone and opens the full-screen view.</p>}
 
       <DifficultyPanel enc={enc} monsters={monsters} />
 
@@ -162,13 +210,14 @@ export default function EncounterTracker({
 // Read-focused combat screen: big round + turn controls, initiative order,
 // active turn highlighted, quick HP damage/heal. Arrow keys / space advance turns.
 function RunView({
-  enc, activeId, onChange, onError, onExit,
+  enc, activeId, onChange, onError, onExit, onEnd,
 }: {
   enc: Encounter
   activeId: number | undefined
   onChange: (e: Encounter) => void
   onError: (m: string) => void
   onExit: () => void
+  onEnd: () => void
 }) {
   async function ctrl(fn: () => Promise<Encounter>) {
     try { onChange(await fn()) } catch (e) { onError((e as Error).message) }
@@ -194,11 +243,11 @@ function RunView({
         <div className="run-controls">
           <button onClick={() => ctrl(() => api.encounters.prevTurn(enc.id))}>◀ Prev</button>
           <button className="run" onClick={() => ctrl(() => api.encounters.nextTurn(enc.id))}>Next ▶</button>
-          <button className="danger" onClick={() => { if (confirm('End combat?')) { ctrl(() => api.encounters.end(enc.id)); onExit() } }}>⏹ End</button>
-          <button onClick={onExit} title="Escape">✕ Zamknij</button>
+          <button className="danger" onClick={() => { if (confirm('End combat?')) onEnd() }}>⏹ End</button>
+          <button onClick={onExit} title="Escape">✕ Close</button>
         </div>
       </div>
-      <p className="muted run-hint">→ / spacja = następna tura · ← = poprzednia · Esc = wyjście</p>
+      <p className="muted run-hint">→ / space = next turn · ← = previous · Esc = exit</p>
 
       <ol className="run-list">
         {enc.combatants.map((c) => (
@@ -311,28 +360,28 @@ function DifficultyPanel({ enc, monsters }: { enc: Encounter; monsters: Monster[
     <div className="row difficulty">
       {auto ? (
         <span className="muted" title="Budget taken from the levels of the PCs in this encounter">
-          Drużyna: {pcLevels.length} PC (poziomy {pcLevels.join(', ')})
+          Party: {pcLevels.length} PC (levels {pcLevels.join(', ')})
         </span>
       ) : (
         <>
-          <span className="muted">Drużyna</span>
+          <span className="muted">Party</span>
           <input type="number" min={1} value={size} title="Party size" onChange={(e) => setSize(e.target.value)} style={{ width: 52 }} />
-          <span className="muted">× poziom</span>
+          <span className="muted">× level</span>
           <input type="number" min={1} max={20} value={manualLevel} title="Party level" onChange={(e) => setManualLevel(e.target.value)} style={{ width: 52 }} />
-          <span className="muted" title="Dodaj PC z poziomem, aby liczyć automatycznie">(brak PC z poziomem)</span>
+          <span className="muted" title="Add a PC with a level to compute this automatically">(no PC with a level)</span>
         </>
       )}
       {label ? (
         <span className="diff-result">
           <b className={`diff ${cls}`}>{label}</b>{' '}
           {monsterCount > 1
-            ? <>{rawXp} XP × {mult} ({monsterCount} potworów) = <b>{adjXp} XP</b></>
+            ? <>{rawXp} XP × {mult} ({monsterCount} monsters) = <b>{adjXp} XP</b></>
             : <>{adjXp} XP</>}
-          <span className="muted"> · budżet: {bLow} / {bMod} / {bHigh}</span>
-          {noCr > 0 && <span className="muted"> · {noCr} bez CR pominięto</span>}
+          <span className="muted"> · budget: {bLow} / {bMod} / {bHigh}</span>
+          {noCr > 0 && <span className="muted"> · {noCr} without CR skipped</span>}
         </span>
       ) : (
-        <span className="muted">brak potworów z CR</span>
+        <span className="muted">no monsters with CR yet</span>
       )}
     </div>
   )
@@ -621,13 +670,13 @@ function AddCombatant({
 
       {mode === 'pc' && party.length > 0 && (
         <div className="row party-roster">
-          <span className="muted">Drużyna:</span>
+          <span className="muted">Party:</span>
           {party.map((p) => (
             <span key={p.id} className="party-chip">
-              <button type="button" className="party-add" title={`Dodaj ${p.name} (HP ${p.max_hp}, Lvl ${p.level})`} onClick={() => addSaved(p)}>
+              <button type="button" className="party-add" title={`Add ${p.name} (HP ${p.max_hp}, Lvl ${p.level})`} onClick={() => addSaved(p)}>
                 {p.name} <span className="muted">L{p.level}</span>
               </button>
-              <button type="button" className="party-del" title="Usuń z drużyny" onClick={() => removeSaved(p.id)}>✕</button>
+              <button type="button" className="party-del" title="Remove from party" onClick={() => removeSaved(p.id)}>✕</button>
             </span>
           ))}
         </div>
@@ -656,8 +705,8 @@ function AddCombatant({
             <input type="number" placeholder="HP" value={hp} onChange={(e) => setHp(e.target.value)} style={{ width: 70 }} />
             <input type="number" placeholder="Lvl" min={1} max={20} value={level} onChange={(e) => setLevel(e.target.value)} style={{ width: 62 }} />
             <input type="number" placeholder="init" value={init} onChange={(e) => setInit(e.target.value)} style={{ width: 70 }} />
-            <label className="save-party" title="Zapisz do drużyny na później">
-              <input type="checkbox" checked={saveToParty} onChange={(e) => setSaveToParty(e.target.checked)} /> zapisz
+            <label className="save-party" title="Save to party for later">
+              <input type="checkbox" checked={saveToParty} onChange={(e) => setSaveToParty(e.target.checked)} /> save
             </label>
             <button type="submit">+ Add</button>
           </>

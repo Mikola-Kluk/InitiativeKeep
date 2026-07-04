@@ -28,6 +28,18 @@ button.danger { background: #f0d9cf; border-color: #c98a78; color: #8f2a1c; }
 button.danger:hover:not(:disabled) { background: #ecc9ba; border-color: var(--crimson); }
 button.heal { background: #d9e8cf; border-color: #86ac74; color: #2f6b30; }
 button.temp { background: #d3e3e8; border-color: #6fa2b0; color: #1f5a6b; }
+/* XP award banner (end of combat) */
+.xp-award {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: #f3e3bd; border: 1px solid var(--gold); border-left: 4px solid var(--gold);
+  color: #5c4413; padding: 10px 14px; border-radius: var(--radius); margin: 4px 0 12px;
+  box-shadow: var(--shadow-sm); font-size: 0.92rem;
+}
+.xp-title { font-weight: 800; font-variant: small-caps; letter-spacing: 0.4px; color: #7c5713; }
+.xp-award b { color: #4a3610; }
+.xp-per { font-size: 1.05rem; }
+.xp-close { margin-left: auto; padding: 3px 9px; }
+
 button.run { background: var(--crimson); border-color: var(--crimson-deep); color: #f6ead2; font-weight: 700; }
 button.run:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--crimson); }
 button.ghost { background: transparent; }
