@@ -1,4 +1,5 @@
 import math
+import re
 
 import httpx
 
@@ -7,6 +8,26 @@ from app.models.monster import Monster
 
 _USER_AGENT = "InitiativeKeep/1.0"
 _PAGE_SIZE = 50
+# Open5e `search` is full-text, so a query like "orc" also matches monsters that
+# merely mention orcs in their traits — and results come back name-sorted, burying
+# the actual "Orc". When there's a query we over-fetch, re-rank by name relevance,
+# then paginate ourselves.
+_SEARCH_FETCH = 300
+
+
+def _name_rank(name: str, query: str) -> int:
+    """0 = exact name, 1 = name starts with query, 2 = query on a word boundary,
+    3 = query anywhere in the name, 4 = matched elsewhere (traits/desc)."""
+    n = name.lower()
+    if n == query:
+        return 0
+    if n.startswith(query):
+        return 1
+    if re.search(r"\b" + re.escape(query), n):
+        return 2
+    if query in n:
+        return 3
+    return 4
 
 
 def _map_open5e_to_fields(m: dict) -> dict:
@@ -60,10 +81,13 @@ async def browse_open5e(
     page: int = 1,
     page_size: int = _PAGE_SIZE,
 ) -> dict:
-    """Paginated, filtered browse of Open5e monsters. Returns light rows for a picker."""
-    params: dict = {"limit": page_size, "page": max(page, 1), "ordering": "name"}
-    if query and query.strip():
-        params["search"] = query.strip()
+    """Paginated, filtered browse of Open5e monsters. Returns light rows for a picker.
+
+    With a text query, results are re-ranked so name matches (esp. exact/prefix)
+    come first instead of the API's raw alphabetical order."""
+    page = max(page, 1)
+    query = (query or "").strip()
+    params: dict = {"ordering": "name"}
     if cr is not None and cr != "":
         params["cr"] = cr
     if type:
@@ -71,6 +95,31 @@ async def browse_open5e(
     if document:
         params["document__slug"] = document
 
+    if query:
+        # over-fetch the whole match set, re-rank by name relevance, paginate here
+        params["search"] = query
+        params["limit"] = _SEARCH_FETCH
+        params["page"] = 1
+        async with httpx.AsyncClient(headers={"User-Agent": _USER_AGENT}) as client:
+            resp = await client.get(
+                f"{settings.OPEN5E_BASE_URL}/v1/monsters/", params=params, timeout=15
+            )
+        resp.raise_for_status()
+        data = resp.json()
+        q = query.lower()
+        ranked = sorted(data.get("results", []), key=lambda m: (_name_rank(m["name"], q), m["name"]))
+        count = len(ranked)
+        start = (page - 1) * page_size
+        window = ranked[start:start + page_size]
+        return {
+            "count": count,
+            "page": page,
+            "num_pages": max(1, math.ceil(count / page_size)) if count else 1,
+            "results": [_light_row(m) for m in window],
+        }
+
+    params["limit"] = page_size
+    params["page"] = page
     async with httpx.AsyncClient(headers={"User-Agent": _USER_AGENT}) as client:
         resp = await client.get(
             f"{settings.OPEN5E_BASE_URL}/v1/monsters/", params=params, timeout=15
@@ -80,7 +129,7 @@ async def browse_open5e(
     count = data.get("count", 0)
     return {
         "count": count,
-        "page": params["page"],
+        "page": page,
         "num_pages": max(1, math.ceil(count / page_size)) if count else 1,
         "results": [_light_row(m) for m in data.get("results", [])],
     }

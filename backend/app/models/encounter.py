@@ -35,6 +35,7 @@ class Combatant(Model):
 
     name = fields.CharField(max_length=255)
     is_pc = fields.BooleanField(default=False)
+    level = fields.IntField(null=True)  # PC level; drives encounter difficulty budget
 
     initiative = fields.IntField(null=True)  # rolled total; null = not yet rolled
     dex_modifier = fields.IntField(default=0)  # tiebreak on initiative

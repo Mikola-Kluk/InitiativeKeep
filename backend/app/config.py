@@ -48,6 +48,7 @@ class Settings(BaseSettings):
                     "models": [
                         "app.models.monster",
                         "app.models.encounter",
+                        "app.models.character",
                         "aerich.models",
                     ],
                     "default_connection": "default",

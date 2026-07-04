@@ -139,6 +139,7 @@ async def add_combatant(encounter_id: int, data: CombatantCreate) -> dict | None
         "encounter_id": encounter_id,
         "name": data.name,
         "is_pc": data.is_pc,
+        "level": data.level,
         "initiative": data.initiative,
         "dex_modifier": data.dex_modifier or 0,
         "armor_class": data.armor_class or 10,
@@ -221,11 +222,12 @@ async def _refill_legendary(encounter_id: int, turn_index: int) -> None:
 
 
 async def start_combat(encounter_id: int) -> dict | None:
-    """Begin combat: roll initiative + HP for NPCs, order by initiative, start at top.
+    """Begin combat: roll initiative for everyone (each individually) and HP for
+    monsters, order by initiative, start at the top.
 
-    - NPC (is_pc=False): initiative = d20 + dex_modifier
+    - Every combatant, PC included: initiative = d20 + dex_modifier
     - From a statblock (monster_id set) with hit_dice: HP rolled from hit_dice
-    PCs keep their entered initiative and HP.
+    PCs keep their entered HP.
     """
     encounter = await Encounter.get_or_none(id=encounter_id)
     if not encounter:
@@ -234,9 +236,8 @@ async def start_combat(encounter_id: int) -> dict | None:
     combatants = await Combatant.filter(encounter_id=encounter_id).prefetch_related("monster")
     for c in combatants:
         changed: list[str] = []
-        if not c.is_pc:
-            c.initiative = dice.roll_initiative(c.dex_modifier)
-            changed.append("initiative")
+        c.initiative = dice.roll_initiative(c.dex_modifier)
+        changed.append("initiative")
         if c.monster_id and c.monster and c.monster.hit_dice:
             hp = dice.roll_expr(c.monster.hit_dice, default=c.max_hp)
             c.max_hp = hp

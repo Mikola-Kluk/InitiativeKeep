@@ -20,6 +20,9 @@ Run encounters, track HP and conditions, and pull from 3200+ monster statblocks 
 - **👑 Legendary actions** — bosses get a clickable 3-orb pool that refills at the start of their turn; statblocks show reactions and legendary actions.
 - **⚖️ Difficulty calculator** — set party size and level, get the encounter's XP total rated against the D&D 2024 Low/Moderate/High budgets live as you add monsters.
 - **🐺 Pack spawning** — add N copies of a monster at once; duplicates are auto-numbered (`Wolf (1)`, `Wolf (2)`, …).
+- **🧑‍🤝‍🧑 Party roster** — save your PCs (name, HP, level) once and drop them into any encounter with one click; no AC to enter for players.
+- **🖥️ Run mode** — prep the fight, then launch a full-screen combat screen; initiative is rolled for every combatant (PCs included). Arrow keys / space advance turns.
+- **⚖️ Smarter difficulty** — the budget is taken from your PCs' levels automatically, and monster XP is scaled by an encounter multiplier so packs read as harder than raw XP.
 - **🐉 Monster library** — browse and filter [Open5e](https://open5e.com)'s 3200+ statblocks by CR, type, or source; import one at a time or in bulk.
 - **🛠️ Homebrew** — create and manage your own statblocks alongside imported ones.
 - **📜 Auto rolls** — on combat start, NPCs roll initiative (`d20 + DEX`) and reroll HP from their hit dice; PCs keep the numbers you typed.
@@ -113,6 +116,7 @@ Initiative order: highest `initiative` first, `dex_modifier` as tiebreak, unroll
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | `GET/POST/PATCH/DELETE` | `/api/v1/monsters` | Homebrew CRUD (`?search=`) |
+| `GET/POST/PATCH/DELETE` | `/api/v1/characters` | Saved PC roster (name, HP, level) |
 | `GET` | `/api/v1/open5e/monsters` | Browse Open5e — `?q= &cr= &type= &document= &page=` (20/page) |
 | `GET` | `/api/v1/open5e/sources` | List document sources for filters |
 | `POST` | `/api/v1/open5e/import/{slug}` | Import one statblock (idempotent) |

@@ -74,8 +74,11 @@ calls live in services.
   `dex_modifier` = `(dexterity - 10) // 2` (property).
 - **Encounter** — one combat. `round` (starts 1), `current_turn_index` (index into the
   initiative-sorted combatant list; `-1` = combat not started).
+- **Character** — a saved PC (name, `max_hp`, `level`) in a reusable party roster
+  (`services/character.py`, `/api/v1/characters`). Pick one to drop into an encounter
+  as a PC combatant without re-typing; PCs carry a `level` that drives difficulty.
 - **Combatant** — a participant. Optional FK to a Monster (spawns from statblock) or a plain PC.
-  Tracks `initiative`, `current_hp`/`max_hp`/`temp_hp`, `concentrating`,
+  Tracks `initiative`, `level` (PC), `current_hp`/`max_hp`/`temp_hp`, `concentrating`,
   `conditions` (JSON list of `{"name", "rounds": int|null}`; timed ones tick down at end of
   round in `next_turn`, legacy plain strings are normalized on read), and a legendary action
   pool (`legendary_actions_max/_remaining`, set to 3 when spawned from a monster that has
@@ -85,10 +88,15 @@ calls live in services.
 Initiative order: highest `initiative` first, `dex_modifier` as tiebreak, unrolled (null) last.
 Sorting is computed in `services/encounter.py` (not a DB order_by) — see `_initiative_key`.
 
-**Start combat** (`start_combat`) rolls for NPCs: initiative = d20 + dex_modifier, and
-HP rerolled from the linked monster's `hit_dice` (e.g. `2d6`). PCs (`is_pc=True`) keep
-their entered initiative and HP. Dice logic in `services/dice.py` (`roll_expr`,
-`roll_initiative`); `roll_expr` parses `NdM+K`, clamps to min 1, falls back to a default.
+**Start combat** (`start_combat`) rolls initiative = d20 + dex_modifier for **every**
+combatant (PCs included — the frontend "Prowadź walkę" run mode relies on this), and
+rerolls monster HP from the linked statblock's `hit_dice` (e.g. `2d6`). PCs keep their
+entered HP. Dice logic in `services/dice.py` (`roll_expr`, `roll_initiative`);
+`roll_expr` parses `NdM+K`, clamps to min 1, falls back to a default.
+
+**Open5e browse** re-ranks text-query results by name relevance (exact → prefix →
+word-boundary → contains → matched-elsewhere) since the API's `search` is full-text and
+name-sorted, which otherwise buries the obvious hit — see `_name_rank` in `services/open5e.py`.
 
 ## API (key endpoints)
 

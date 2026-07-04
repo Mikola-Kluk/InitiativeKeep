@@ -8,6 +8,7 @@ class CombatantCreate(BaseModel):
     monster_id: int | None = None
     name: str | None = None
     is_pc: bool = False
+    level: int | None = Field(default=None, ge=1, le=20)  # PC level
     initiative: int | None = None
     dex_modifier: int | None = None
     armor_class: int | None = Field(default=None, ge=0)
@@ -18,6 +19,7 @@ class CombatantCreate(BaseModel):
 
 class CombatantUpdate(BaseModel):
     name: str | None = None
+    level: int | None = Field(default=None, ge=1, le=20)
     initiative: int | None = None
     dex_modifier: int | None = None
     armor_class: int | None = Field(default=None, ge=0)
@@ -34,6 +36,7 @@ class CombatantOut(BaseModel):
     monster_id: int | None = None
     name: str
     is_pc: bool
+    level: int | None = None
     initiative: int | None = None
     dex_modifier: int
     armor_class: int

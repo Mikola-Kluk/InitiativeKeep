@@ -37,11 +37,19 @@ export interface ConditionEntry {
   rounds: number | null // remaining rounds; null = until removed
 }
 
+export interface Character {
+  id: number
+  name: string
+  max_hp: number
+  level: number
+}
+
 export interface Combatant {
   id: number
   monster_id: number | null
   name: string
   is_pc: boolean
+  level: number | null
   initiative: number | null
   dex_modifier: number
   armor_class: number
@@ -140,6 +148,15 @@ export const api = {
       }),
   },
 
+  characters: {
+    list: () => request<Character[]>('/characters/'),
+    create: (data: { name: string; max_hp?: number; level?: number }) =>
+      request<Character>('/characters/', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: number, data: Partial<Character>) =>
+      request<Character>(`/characters/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    remove: (id: number) => request<void>(`/characters/${id}`, { method: 'DELETE' }),
+  },
+
   encounters: {
     list: () => request<Encounter[]>('/encounters/'),
     get: (id: number) => request<Encounter>(`/encounters/${id}`),
@@ -147,7 +164,7 @@ export const api = {
       request<Encounter>('/encounters/', { method: 'POST', body: JSON.stringify({ name }) }),
     remove: (id: number) =>
       request<void>(`/encounters/${id}`, { method: 'DELETE' }),
-    addCombatant: (id: number, body: Partial<Combatant> & { monster_id?: number; count?: number }) =>
+    addCombatant: (id: number, body: Partial<Combatant> & { monster_id?: number; count?: number; level?: number }) =>
       request<Encounter>(`/encounters/${id}/combatants`, {
         method: 'POST',
         body: JSON.stringify(body),
