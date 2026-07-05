@@ -8,6 +8,9 @@ from app.models.monster import Monster
 
 _USER_AGENT = "InitiativeKeep/1.0"
 _PAGE_SIZE = 50
+# Open5e's public API is frequently degraded (20-40s responses); a low timeout
+# turns every browse/import into an "Open5e API error". Configurable via env.
+_TIMEOUT = settings.OPEN5E_TIMEOUT
 # Open5e `search` is full-text, so a query like "orc" also matches monsters that
 # merely mention orcs in their traits — and results come back name-sorted, burying
 # the actual "Orc". When there's a query we over-fetch, re-rank by name relevance,
@@ -108,7 +111,7 @@ async def browse_open5e(
         params["page"] = 1
         async with httpx.AsyncClient(headers={"User-Agent": _USER_AGENT}) as client:
             resp = await client.get(
-                f"{settings.OPEN5E_BASE_URL}/v1/monsters/", params=params, timeout=15
+                f"{settings.OPEN5E_BASE_URL}/v1/monsters/", params=params, timeout=_TIMEOUT
             )
         resp.raise_for_status()
         data = resp.json()
@@ -128,7 +131,7 @@ async def browse_open5e(
     params["page"] = page
     async with httpx.AsyncClient(headers={"User-Agent": _USER_AGENT}) as client:
         resp = await client.get(
-            f"{settings.OPEN5E_BASE_URL}/v1/monsters/", params=params, timeout=15
+            f"{settings.OPEN5E_BASE_URL}/v1/monsters/", params=params, timeout=_TIMEOUT
         )
     resp.raise_for_status()
     data = resp.json()
@@ -147,7 +150,7 @@ async def list_sources() -> list[dict]:
         resp = await client.get(
             f"{settings.OPEN5E_BASE_URL}/v1/documents/",
             params={"limit": 50},
-            timeout=15,
+            timeout=_TIMEOUT,
         )
     resp.raise_for_status()
     data = resp.json()
@@ -163,7 +166,7 @@ async def preview_open5e(slug: str) -> dict | None:
     before import. Shaped like MonsterOut (id=0, not persisted)."""
     async with httpx.AsyncClient(headers={"User-Agent": _USER_AGENT}) as client:
         resp = await client.get(
-            f"{settings.OPEN5E_BASE_URL}/v1/monsters/{slug}/", timeout=15
+            f"{settings.OPEN5E_BASE_URL}/v1/monsters/{slug}/", timeout=_TIMEOUT
         )
     if resp.status_code == 404:
         return None
@@ -179,7 +182,7 @@ async def import_monster(slug: str) -> Monster | None:
         return existing
     async with httpx.AsyncClient(headers={"User-Agent": _USER_AGENT}) as client:
         resp = await client.get(
-            f"{settings.OPEN5E_BASE_URL}/v1/monsters/{slug}/", timeout=15
+            f"{settings.OPEN5E_BASE_URL}/v1/monsters/{slug}/", timeout=_TIMEOUT
         )
     if resp.status_code == 404:
         return None
@@ -198,7 +201,7 @@ async def refresh_imported() -> dict:
         for mon in monsters:
             try:
                 resp = await client.get(
-                    f"{settings.OPEN5E_BASE_URL}/v1/monsters/{mon.slug}/", timeout=15
+                    f"{settings.OPEN5E_BASE_URL}/v1/monsters/{mon.slug}/", timeout=_TIMEOUT
                 )
                 if resp.status_code == 404:
                     failed.append(mon.slug)

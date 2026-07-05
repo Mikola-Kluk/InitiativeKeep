@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     TORTOISE_ORM: dict = {}
 
     OPEN5E_BASE_URL: str = "https://api.open5e.com"
+    # Open5e's public API is often slow (20-40s per call); keep this generous.
+    OPEN5E_TIMEOUT: float = 40.0
 
     @model_validator(mode="after")
     def build_tortoise_orm(self) -> "Settings":
