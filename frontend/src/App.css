@@ -320,6 +320,8 @@ button.conc-alert {
 
 .sb-line { display: flex; gap: 22px; flex-wrap: wrap; margin: 7px 0; font-size: 0.95rem; }
 .sb-line b { color: var(--crimson); font-variant: small-caps; letter-spacing: 0.4px; }
+.sb-defenses { margin: 4px 0; }
+.sb-defenses .sb-line { margin: 3px 0; font-size: 0.92rem; }
 
 .abilities {
   display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 16px 0;
@@ -346,6 +348,59 @@ button.conc-alert {
 }
 .sb-section p { margin: 7px 0; font-size: 0.95rem; line-height: 1.5; color: var(--ink-dim); }
 .sb-section b { color: var(--ink); font-style: italic; }
+
+/* ── homebrew statblock editor ─────────────────────────────── */
+.modal.editor { max-width: 720px; font-family: var(--serif); }
+.modal.editor h2 { color: var(--crimson); font-variant: small-caps; margin: 0 0 12px; }
+.modal.editor form { display: flex; flex-direction: column; gap: 14px; }
+.modal.editor label { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; color: var(--ink-dim); font-weight: 600; }
+.modal.editor input, .modal.editor select, .modal.editor textarea { font-weight: 400; font-size: 0.9rem; }
+.modal.editor textarea {
+  background: #fbf5e4; color: var(--ink); border: 1px solid var(--border-2);
+  padding: 7px 10px; border-radius: 8px; font-family: var(--serif); resize: vertical;
+}
+.modal.editor textarea:focus { outline: none; border-color: var(--crimson); box-shadow: 0 0 0 3px var(--accent-glow); }
+
+.ed-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.ed-grid .ed-wide { grid-column: span 2; }
+.ed-crhint { align-self: end; grid-column: span 3; font-weight: 400; }
+
+.ed-fs {
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px 12px;
+  margin: 0; display: flex; flex-direction: column; gap: 8px;
+}
+.ed-fs legend { color: var(--crimson); font-variant: small-caps; letter-spacing: 0.4px; font-size: 0.95rem; padding: 0 6px; font-weight: 700; }
+.ed-note { margin: 0; font-style: italic; font-weight: 400; }
+.ed-block { display: flex; flex-direction: column; }
+
+.ed-speed { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.ed-abilities { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.ed-abilities label { text-align: center; align-items: center; }
+.ed-abilities input { text-align: center; }
+
+.ed-entry { display: grid; grid-template-columns: 1fr 2.2fr auto; gap: 8px; align-items: start; }
+.ed-entry-del { align-self: start; padding: 6px 10px; }
+.ed-add {
+  align-self: flex-start; background: var(--surface-2); border: 1px dashed var(--border-2);
+  color: var(--crimson); font-size: 0.82rem;
+}
+.ed-add:hover:not(:disabled) { border-color: var(--crimson); background: #efe3c5; }
+
+.ed-actions { margin-top: 4px; }
+.ed-actions button[type="submit"] { font-weight: 700; }
+
+.row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.row-actions button { padding: 4px 9px; }
+
+@media (max-width: 640px) {
+  .ed-grid { grid-template-columns: repeat(2, 1fr); }
+  .ed-grid .ed-wide { grid-column: span 2; }
+  .ed-crhint { grid-column: span 2; }
+  .ed-speed { grid-template-columns: repeat(3, 1fr); }
+  .ed-abilities { grid-template-columns: repeat(3, 1fr); }
+  .ed-entry { grid-template-columns: 1fr auto; }
+  .ed-entry-desc { grid-column: 1 / -1; }
+}
 
 /* tables */
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }

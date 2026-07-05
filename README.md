@@ -24,7 +24,7 @@ Run encounters, track HP and conditions, and pull from 3200+ monster statblocks 
 - **🖥️ Run mode** — prep the fight, then launch a full-screen combat screen; initiative is rolled for every combatant (PCs included). Arrow keys / space advance turns.
 - **⚖️ Smarter difficulty** — the budget is taken from your PCs' levels automatically, and monster XP is scaled by an encounter multiplier so packs read as harder than raw XP.
 - **🐉 Monster library** — browse and filter [Open5e](https://open5e.com)'s 3200+ statblocks by CR, type, or source; import one at a time or in bulk.
-- **🛠️ Homebrew** — create and manage your own statblocks alongside imported ones.
+- **🛠️ Statblock creator** — build your own NPCs and bosses with a full editor: size/type/AC/HP/hit dice, speeds, six ability scores, CR, and repeatable traits, actions, reactions, and legendary actions. Edit them anytime; a homebrew boss with legendary actions spawns with the 3-orb pool automatically.
 - **📜 Auto rolls** — on combat start, NPCs roll initiative (`d20 + DEX`) and reroll HP from their hit dice; PCs keep the numbers you typed.
 - **📖 Statblock detail** — full modal view: abilities, AC/HP/CR, speed, traits, and actions.
 - **📱 Responsive** — works on phone and tablet: combatant cards reflow, tables scroll, and the condition picker is tap-friendly.

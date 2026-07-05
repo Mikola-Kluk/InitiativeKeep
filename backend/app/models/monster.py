@@ -31,6 +31,14 @@ class Monster(Model):
     challenge_rating = fields.CharField(max_length=10, null=True)  # "1/4", "5", ...
     cr = fields.FloatField(null=True)  # numeric CR for sorting
 
+    # defenses & senses — free-text, comma-separated (mirrors Open5e)
+    damage_vulnerabilities = fields.TextField(null=True)
+    damage_resistances = fields.TextField(null=True)
+    damage_immunities = fields.TextField(null=True)
+    condition_immunities = fields.TextField(null=True)
+    senses = fields.TextField(null=True)
+    languages = fields.TextField(null=True)
+
     traits = fields.JSONField(default=list)  # [{"name","desc"}]
     actions = fields.JSONField(default=list)  # [{"name","desc"}]
     reactions = fields.JSONField(default=list)  # [{"name","desc"}]

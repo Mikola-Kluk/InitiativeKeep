@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, type Monster, type Open5eBrowse, type Open5eSource } from '../api/client'
 import MonsterDetail from './MonsterDetail'
+import MonsterEditor from './MonsterEditor'
 
 export default function MonsterBrowser() {
   const [tab, setTab] = useState<'open5e' | 'library'>('open5e')
@@ -108,14 +109,28 @@ function Open5eBrowser() {
 function Library() {
   const [monsters, setMonsters] = useState<Monster[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [name, setName] = useState('')
-  const [hp, setHp] = useState('')
-  const [ac, setAc] = useState('')
   const [detailId, setDetailId] = useState<number | null>(null)
   const [filter, setFilter] = useState('')
+  // null = editor closed, 'new' = create, Monster = edit that statblock
+  const [editing, setEditing] = useState<Monster | 'new' | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
 
   function load() { api.monsters.list().then(setMonsters).catch((e) => setError(e.message)) }
   useEffect(load, [])
+
+  const hasImported = monsters.some((m) => !m.is_homebrew)
+
+  async function refresh() {
+    setRefreshing(true)
+    setError(null)
+    try {
+      const res = await api.open5e.refresh()
+      load()
+      alert(`Refreshed ${res.updated.length} imported statblock${res.updated.length === 1 ? '' : 's'} from Open5e` +
+        (res.failed.length ? ` · ${res.failed.length} failed` : ''))
+    } catch (err) { setError((err as Error).message) }
+    finally { setRefreshing(false) }
+  }
 
   const q = filter.trim().toLowerCase()
   const shown = q
@@ -125,30 +140,20 @@ function Library() {
         String(m.challenge_rating ?? '').toLowerCase().includes(q))
     : monsters
 
-  async function create(e: React.FormEvent) {
-    e.preventDefault()
-    if (!name.trim()) return
-    try {
-      await api.monsters.create({
-        name: name.trim(),
-        hit_points: hp ? Number(hp) : 1,
-        armor_class: ac ? Number(ac) : 10,
-      })
-      setName(''); setHp(''); setAc(''); load()
-    } catch (err) { setError((err as Error).message) }
-  }
-
   return (
     <div>
-      <form onSubmit={create} className="row">
-        <input placeholder="Homebrew name" value={name} onChange={(e) => setName(e.target.value)} />
-        <input type="number" placeholder="HP" value={hp} onChange={(e) => setHp(e.target.value)} style={{ width: 70 }} />
-        <input type="number" placeholder="AC" value={ac} onChange={(e) => setAc(e.target.value)} style={{ width: 70 }} />
-        <button type="submit">+ Add homebrew</button>
-      </form>
+      <div className="row">
+        <button className="run" onClick={() => setEditing('new')}>＋ Create statblock</button>
+        <span className="muted">Build a custom NPC or boss — full stats, attacks, traits, legendary actions.</span>
+        {hasImported && (
+          <button className="ghost" disabled={refreshing} onClick={refresh} title="Re-fetch imported statblocks from Open5e (defenses, senses, reactions, legendary actions)">
+            {refreshing ? 'Refreshing…' : '⟳ Refresh imported'}
+          </button>
+        )}
+      </div>
 
       {error && <p className="error">{error}</p>}
-      {monsters.length === 0 && <p className="muted">Library empty. Import from Open5e or add homebrew.</p>}
+      {monsters.length === 0 && <p className="muted">Library empty. Import from Open5e or create a statblock.</p>}
 
       {monsters.length > 0 && (
         <div className="row filters">
@@ -169,8 +174,9 @@ function Library() {
               <td>{m.hit_points}</td>
               <td>{m.armor_class}</td>
               <td className="muted">{m.is_homebrew ? 'homebrew' : m.slug}</td>
-              <td>
-                <button className="danger" onClick={async () => { await api.monsters.remove(m.id); load() }}>✕</button>
+              <td className="row-actions">
+                {m.is_homebrew && <button className="ghost" title="Edit" onClick={() => setEditing(m)}>✎</button>}
+                <button className="danger" onClick={async () => { if (confirm(`Delete "${m.name}"?`)) { await api.monsters.remove(m.id); load() } }}>✕</button>
               </td>
             </tr>
           ))}
@@ -179,6 +185,13 @@ function Library() {
       </div>
 
       {detailId !== null && <MonsterDetail monsterId={detailId} onClose={() => setDetailId(null)} />}
+      {editing !== null && (
+        <MonsterEditor
+          monster={editing === 'new' ? undefined : editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); load() }}
+        />
+      )}
     </div>
   )
 }

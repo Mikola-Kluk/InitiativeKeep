@@ -62,3 +62,13 @@ async def import_monster(slug: str):
 @router.post("/import", response_model=BulkImportResult)
 async def import_bulk(data: BulkImportRequest):
     return await open5e_service.import_many(data.slugs)
+
+
+@router.post("/refresh")
+async def refresh_imported():
+    """Backfill/refresh all imported statblocks from Open5e (defenses, senses,
+    languages, reactions, legendary actions)."""
+    try:
+        return await open5e_service.refresh_imported()
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Open5e API error: {exc}")

@@ -53,6 +53,12 @@ def _map_open5e_to_fields(m: dict) -> dict:
         "charisma": m.get("charisma") or 10,
         "challenge_rating": m.get("challenge_rating"),
         "cr": m.get("cr"),
+        "damage_vulnerabilities": m.get("damage_vulnerabilities") or None,
+        "damage_resistances": m.get("damage_resistances") or None,
+        "damage_immunities": m.get("damage_immunities") or None,
+        "condition_immunities": m.get("condition_immunities") or None,
+        "senses": m.get("senses") or None,
+        "languages": m.get("languages") or None,
         "traits": m.get("special_abilities") or [],
         "actions": m.get("actions") or [],
         "reactions": m.get("reactions") or [],
@@ -179,6 +185,32 @@ async def import_monster(slug: str) -> Monster | None:
         return None
     resp.raise_for_status()
     return await Monster.create(**_map_open5e_to_fields(resp.json()))
+
+
+async def refresh_imported() -> dict:
+    """Re-fetch every already-imported Open5e monster and overwrite its fields with
+    the current mapping. Backfills columns added after the original import
+    (defenses, senses, languages, reactions, legendary actions)."""
+    monsters = await Monster.filter(source="open5e").exclude(slug=None)
+    updated: list[str] = []
+    failed: list[str] = []
+    async with httpx.AsyncClient(headers={"User-Agent": _USER_AGENT}) as client:
+        for mon in monsters:
+            try:
+                resp = await client.get(
+                    f"{settings.OPEN5E_BASE_URL}/v1/monsters/{mon.slug}/", timeout=15
+                )
+                if resp.status_code == 404:
+                    failed.append(mon.slug)
+                    continue
+                resp.raise_for_status()
+            except httpx.HTTPError:
+                failed.append(mon.slug)
+                continue
+            mon.update_from_dict(_map_open5e_to_fields(resp.json()))
+            await mon.save()
+            updated.append(mon.slug)
+    return {"updated": updated, "failed": failed}
 
 
 async def import_many(slugs: list[str]) -> dict:

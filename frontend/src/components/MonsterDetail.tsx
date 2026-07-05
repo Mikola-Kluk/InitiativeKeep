@@ -60,6 +60,18 @@ export default function MonsterDetail({
               </p>
             )}
 
+            {(m.damage_vulnerabilities || m.damage_resistances || m.damage_immunities ||
+              m.condition_immunities || m.senses || m.languages) && (
+              <div className="sb-defenses">
+                {m.damage_vulnerabilities && <p className="sb-line"><b>Vulnerabilities</b> {m.damage_vulnerabilities}</p>}
+                {m.damage_resistances && <p className="sb-line"><b>Resistances</b> {m.damage_resistances}</p>}
+                {m.damage_immunities && <p className="sb-line"><b>Damage Immunities</b> {m.damage_immunities}</p>}
+                {m.condition_immunities && <p className="sb-line"><b>Condition Immunities</b> {m.condition_immunities}</p>}
+                {m.senses && <p className="sb-line"><b>Senses</b> {m.senses}</p>}
+                {m.languages && <p className="sb-line"><b>Languages</b> {m.languages}</p>}
+              </div>
+            )}
+
             <hr className="sb-rule" />
 
             <div className="abilities">

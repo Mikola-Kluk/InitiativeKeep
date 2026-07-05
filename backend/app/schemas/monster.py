@@ -23,6 +23,13 @@ class MonsterBase(BaseModel):
     challenge_rating: str | None = None
     cr: float | None = None
 
+    damage_vulnerabilities: str | None = None
+    damage_resistances: str | None = None
+    damage_immunities: str | None = None
+    condition_immunities: str | None = None
+    senses: str | None = None
+    languages: str | None = None
+
     traits: list = Field(default_factory=list)
     actions: list = Field(default_factory=list)
     reactions: list = Field(default_factory=list)
@@ -52,6 +59,12 @@ class MonsterUpdate(BaseModel):
     charisma: int | None = Field(default=None, ge=1, le=30)
     challenge_rating: str | None = None
     cr: float | None = None
+    damage_vulnerabilities: str | None = None
+    damage_resistances: str | None = None
+    damage_immunities: str | None = None
+    condition_immunities: str | None = None
+    senses: str | None = None
+    languages: str | None = None
     traits: list | None = None
     actions: list | None = None
     reactions: list | None = None

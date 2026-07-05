@@ -24,6 +24,12 @@ export interface Monster {
   charisma: number
   challenge_rating: string | null
   cr: number | null
+  damage_vulnerabilities: string | null
+  damage_resistances: string | null
+  damage_immunities: string | null
+  condition_immunities: string | null
+  senses: string | null
+  languages: string | null
   traits: { name: string; desc: string }[]
   actions: { name: string; desc: string }[]
   reactions: { name: string; desc: string }[]
@@ -130,6 +136,8 @@ export const api = {
     get: (id: number) => request<Monster>(`/monsters/${id}`),
     create: (data: Partial<Monster>) =>
       request<Monster>('/monsters/', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: number, data: Partial<Monster>) =>
+      request<Monster>(`/monsters/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     remove: (id: number) =>
       request<void>(`/monsters/${id}`, { method: 'DELETE' }),
   },
@@ -146,6 +154,8 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ slugs }),
       }),
+    refresh: () =>
+      request<{ updated: string[]; failed: string[] }>('/open5e/refresh', { method: 'POST' }),
   },
 
   characters: {
