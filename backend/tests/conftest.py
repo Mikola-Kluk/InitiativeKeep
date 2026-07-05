@@ -8,7 +8,7 @@ from app.main import app
 
 TEST_DB_URL = "sqlite://:memory:"
 
-_MODELS = ["app.models.monster", "app.models.encounter"]
+_MODELS = ["app.models.monster", "app.models.encounter", "app.models.character"]
 
 
 @asynccontextmanager
@@ -36,12 +36,14 @@ async def init_db():
 @pytest.fixture(autouse=True)
 async def clean_db(init_db):
     yield
+    from app.models.character import Character
     from app.models.encounter import Combatant, Encounter
     from app.models.monster import Monster
 
     await Combatant.all().delete()
     await Encounter.all().delete()
     await Monster.all().delete()
+    await Character.all().delete()
 
 
 @pytest.fixture

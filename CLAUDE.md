@@ -158,7 +158,7 @@ TODO: Dockerfile, docker-compose, entrypoint (`aerich upgrade` + uvicorn), GitHu
 
 - [x] Backend scaffold, models, monster CRUD, Open5e import, encounter + combat control
 - [x] aerich migrations + E2E smoke test (import → encounter → combatants → turns)
-- [ ] pytest suite in `backend/tests/`
+- [x] pytest suite in `backend/tests/` (dice, open5e, monsters, characters, encounters)
 - [x] Open5e browse/filter + bulk import (3200+ monsters — scraping deemed unnecessary)
 - [x] Frontend (React + Vite + TS): encounter tracker, HP/conditions, Open5e browse/import
 - [ ] Auth (deferred — add later, as BGC did)

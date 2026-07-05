@@ -156,7 +156,81 @@ async def test_update_combatant_hp_and_conditions(client: AsyncClient):
     )
     c = r.json()["combatants"][0]
     assert c["current_hp"] == 2
-    assert c["conditions"] == ["prone", "poisoned"]
+    # plain strings are normalized on read to {"name", "rounds"} objects
+    assert c["conditions"] == [
+        {"name": "prone", "rounds": None},
+        {"name": "poisoned", "rounds": None},
+    ]
+
+
+async def test_timed_condition_ticks_down_each_round(client: AsyncClient):
+    eid = await _make_encounter(client)
+    add = await _add(client, eid, name="Solo", is_pc=True, initiative=10)
+    cid = add.json()["combatants"][0]["id"]
+    await client.post(f"/api/v1/encounters/{eid}/start")
+
+    # 2-round timed condition
+    await client.patch(
+        f"/api/v1/encounters/{eid}/combatants/{cid}",
+        json={"conditions": [{"name": "stunned", "rounds": 2}]},
+    )
+    # one full round (single combatant wraps immediately) -> rounds 2 -> 1
+    r = (await client.post(f"/api/v1/encounters/{eid}/next-turn")).json()
+    assert r["round"] == 2
+    assert r["combatants"][0]["conditions"] == [{"name": "stunned", "rounds": 1}]
+
+    # another round -> expires and drops off
+    r = (await client.post(f"/api/v1/encounters/{eid}/next-turn")).json()
+    assert r["round"] == 3
+    assert r["combatants"][0]["conditions"] == []
+
+
+async def test_permanent_condition_never_ticks(client: AsyncClient):
+    eid = await _make_encounter(client)
+    add = await _add(client, eid, name="Solo", is_pc=True, initiative=10)
+    cid = add.json()["combatants"][0]["id"]
+    await client.post(f"/api/v1/encounters/{eid}/start")
+    await client.patch(
+        f"/api/v1/encounters/{eid}/combatants/{cid}",
+        json={"conditions": [{"name": "prone", "rounds": None}]},
+    )
+    r = (await client.post(f"/api/v1/encounters/{eid}/next-turn")).json()
+    assert r["combatants"][0]["conditions"] == [{"name": "prone", "rounds": None}]
+
+
+async def test_legendary_actions_spawn_and_refill(client: AsyncClient):
+    mid = (await client.post(
+        "/api/v1/monsters/",
+        json={"name": "Lich", "legendary_actions": [{"name": "Cantrip"}]},
+    )).json()["id"]
+    eid = await _make_encounter(client)
+    add = await _add(client, eid, monster_id=mid, initiative=10)
+    cid = add.json()["combatants"][0]["id"]
+    # spawned from a monster with legendary_actions -> pool of 3
+    assert add.json()["combatants"][0]["legendary_actions_max"] == 3
+    assert add.json()["combatants"][0]["legendary_actions_remaining"] == 3
+
+    await client.post(f"/api/v1/encounters/{eid}/start")
+    # spend two
+    await client.patch(
+        f"/api/v1/encounters/{eid}/combatants/{cid}",
+        json={"legendary_actions_remaining": 1},
+    )
+    # advancing back to the creature's own turn refills the pool
+    r = (await client.post(f"/api/v1/encounters/{eid}/next-turn")).json()
+    assert r["combatants"][0]["legendary_actions_remaining"] == 3
+
+
+async def test_concentration_toggle(client: AsyncClient):
+    eid = await _make_encounter(client)
+    add = await _add(client, eid, name="Wizard", is_pc=True, initiative=10)
+    cid = add.json()["combatants"][0]["id"]
+    assert add.json()["combatants"][0]["concentrating"] is False
+    r = await client.patch(
+        f"/api/v1/encounters/{eid}/combatants/{cid}",
+        json={"concentrating": True},
+    )
+    assert r.json()["combatants"][0]["concentrating"] is True
 
 
 async def test_remove_combatant(client: AsyncClient):

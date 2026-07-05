@@ -50,6 +50,31 @@ async def test_delete_monster(client: AsyncClient):
     assert (await client.get(f"/api/v1/monsters/{mid}")).status_code == 404
 
 
+async def test_create_monster_with_defenses(client: AsyncClient):
+    r = await client.post(
+        "/api/v1/monsters/",
+        json={
+            "name": "Frost Wraith",
+            "damage_vulnerabilities": "fire",
+            "damage_resistances": "cold, necrotic",
+            "damage_immunities": "poison",
+            "condition_immunities": "charmed, frightened",
+        },
+    )
+    assert r.status_code == 201
+    data = r.json()
+    assert data["damage_vulnerabilities"] == "fire"
+    assert data["damage_resistances"] == "cold, necrotic"
+    assert data["damage_immunities"] == "poison"
+    assert data["condition_immunities"] == "charmed, frightened"
+
+
+async def test_defenses_default_null(client: AsyncClient):
+    data = (await client.post("/api/v1/monsters/", json={"name": "Plain"})).json()
+    assert data["damage_resistances"] is None
+    assert data["condition_immunities"] is None
+
+
 async def test_search_filter(client: AsyncClient):
     await client.post("/api/v1/monsters/", json={"name": "Red Dragon"})
     await client.post("/api/v1/monsters/", json={"name": "Goblin"})
