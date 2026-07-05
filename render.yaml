@@ -1,0 +1,18 @@
+# Render blueprint — deploys InitiativeKeep as one Docker web service.
+# In Render: New > Blueprint > pick this repo. Render reads this file.
+#
+# The database is NOT defined here: use a free Neon.tech Postgres and paste its
+# connection string into the DATABASE_URL env var below (marked sync:false so
+# Render prompts you for it instead of storing it in git).
+services:
+  - type: web
+    name: initiativekeep
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /docs
+    envVars:
+      - key: DATABASE_URL
+        sync: false                       # paste your Neon Postgres URL in the Render UI
+      - key: OPEN5E_BASE_URL
+        value: https://api.open5e.com
