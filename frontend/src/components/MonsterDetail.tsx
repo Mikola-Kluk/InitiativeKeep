@@ -15,10 +15,12 @@ export default function MonsterDetail({
   monsterId,
   open5eSlug,
   onClose,
+  variant = 'modal',
 }: {
   monsterId?: number
   open5eSlug?: string
   onClose: () => void
+  variant?: 'modal' | 'panel'
 }) {
   const [m, setM] = useState<Monster | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -31,15 +33,14 @@ export default function MonsterDetail({
     load.then(setM).catch((e) => setError(e.message))
   }, [monsterId, open5eSlug])
 
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal statblock" onClick={(e) => e.stopPropagation()}>
-        <button className="modal-close" onClick={onClose}>✕</button>
-        {error && <p className="error">{error}</p>}
-        {!m ? (
-          <p className="muted">Loading…</p>
-        ) : (
-          <>
+  const body = (
+    <>
+      <button className="modal-close" onClick={onClose}>✕</button>
+      {error && <p className="error">{error}</p>}
+      {!m ? (
+        <p className="muted">Loading…</p>
+      ) : (
+        <>
             <h2>{m.name}</h2>
             <p className="sb-sub">
               {[m.size, m.type, m.alignment].filter(Boolean).join(' · ')}
@@ -122,8 +123,23 @@ export default function MonsterDetail({
                 ))}
               </div>
             )}
-          </>
-        )}
+        </>
+      )}
+    </>
+  )
+
+  if (variant === 'panel') {
+    return (
+      <aside className="statblock-panel statblock">
+        {body}
+      </aside>
+    )
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal statblock" onClick={(e) => e.stopPropagation()}>
+        {body}
       </div>
     </div>
   )

@@ -84,7 +84,6 @@ export default function EncounterTracker({
   const [monsters, setMonsters] = useState<Monster[]>([])
   const [error, setError] = useState<string | null>(null)
   const [detailId, setDetailId] = useState<number | null>(null)
-  const [runMode, setRunMode] = useState(false)
   const [award, setAward] = useState<XpAward | null>(null)
 
   const load = useCallback(() => {
@@ -103,32 +102,10 @@ export default function EncounterTracker({
     try { setEnc(await fn()) } catch (e) { setError((e as Error).message) }
   }
 
-  async function runFight() {
-    // prep → launch: roll initiative for anyone missing one, then go fullscreen
-    try {
-      setEnc(await api.encounters.start(enc!.id))
-      setRunMode(true)
-    } catch (e) { setError((e as Error).message) }
-  }
-
   async function endCombat() {
     // tally XP from downed monsters before the state resets
     setAward(defeatedXp(enc!, monsters))
-    setRunMode(false)
     await ctrl(() => api.encounters.end(enc!.id))
-  }
-
-  if (runMode && started) {
-    return (
-      <RunView
-        enc={enc}
-        activeId={activeId}
-        onChange={setEnc}
-        onError={setError}
-        onExit={() => setRunMode(false)}
-        onEnd={endCombat}
-      />
-    )
   }
 
   return (
@@ -161,9 +138,8 @@ export default function EncounterTracker({
       <div className="row controls">
         {started ? (
           <>
-            <button className="run" onClick={() => setRunMode(true)}>⛶ Run (full screen)</button>
             <button disabled={!started} onClick={() => ctrl(() => api.encounters.prevTurn(enc.id))}>◀ Prev</button>
-            <button disabled={!started} onClick={() => ctrl(() => api.encounters.nextTurn(enc.id))}>Next ▶</button>
+            <button className="run" disabled={!started} onClick={() => ctrl(() => api.encounters.nextTurn(enc.id))}>Next ▶</button>
             <button
               className="danger"
               onClick={() => { if (confirm('End combat? Turn order resets; HP and conditions are kept.')) endCombat() }}
@@ -172,14 +148,11 @@ export default function EncounterTracker({
             </button>
           </>
         ) : (
-          <>
-            <button className="run" onClick={runFight}>⚔ Run fight</button>
-            <button onClick={() => ctrl(() => api.encounters.start(enc.id))}>▶ Start (here)</button>
-          </>
+          <button className="run" onClick={() => ctrl(() => api.encounters.start(enc.id))}>⚔ Start fight</button>
         )}
       </div>
 
-      {!started && <p className="muted prep-hint">Prep phase — add combatants, then “Run fight” rolls initiative for everyone and opens the full-screen view.</p>}
+      {!started && <p className="muted prep-hint">Prep phase — add combatants, then “Start fight” rolls initiative for everyone.</p>}
 
       <DifficultyPanel enc={enc} monsters={monsters} />
 
@@ -201,119 +174,8 @@ export default function EncounterTracker({
 
       <AddCombatant encounterId={enc.id} monsters={monsters} onAdded={setEnc} onError={setError} />
 
-      {detailId !== null && <MonsterDetail monsterId={detailId} onClose={() => setDetailId(null)} />}
+      {detailId !== null && <MonsterDetail monsterId={detailId} variant="panel" onClose={() => setDetailId(null)} />}
     </section>
-  )
-}
-
-// ── Fullscreen "run the fight" view ──────────────────────────────
-// Read-focused combat screen: big round + turn controls, initiative order,
-// active turn highlighted, quick HP damage/heal. Arrow keys / space advance turns.
-function RunView({
-  enc, activeId, onChange, onError, onExit, onEnd,
-}: {
-  enc: Encounter
-  activeId: number | undefined
-  onChange: (e: Encounter) => void
-  onError: (m: string) => void
-  onExit: () => void
-  onEnd: () => void
-}) {
-  async function ctrl(fn: () => Promise<Encounter>) {
-    try { onChange(await fn()) } catch (e) { onError((e as Error).message) }
-  }
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      const tag = (e.target as HTMLElement)?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return
-      if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); ctrl(() => api.encounters.nextTurn(enc.id)) }
-      else if (e.key === 'ArrowLeft') { e.preventDefault(); ctrl(() => api.encounters.prevTurn(enc.id)) }
-      else if (e.key === 'Escape') onExit()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [enc.id]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  return (
-    <div className="run-view">
-      <div className="run-top">
-        <span className="round-badge big">Round {enc.round}</span>
-        <span className="run-name">{enc.name}</span>
-        <div className="run-controls">
-          <button onClick={() => ctrl(() => api.encounters.prevTurn(enc.id))}>◀ Prev</button>
-          <button className="run" onClick={() => ctrl(() => api.encounters.nextTurn(enc.id))}>Next ▶</button>
-          <button className="danger" onClick={() => { if (confirm('End combat?')) onEnd() }}>⏹ End</button>
-          <button onClick={onExit} title="Escape">✕ Close</button>
-        </div>
-      </div>
-      <p className="muted run-hint">→ / space = next turn · ← = previous · Esc = exit</p>
-
-      <ol className="run-list">
-        {enc.combatants.map((c) => (
-          <RunRow key={c.id} c={c} active={c.id === activeId} encounterId={enc.id} onChange={onChange} onError={onError} />
-        ))}
-      </ol>
-    </div>
-  )
-}
-
-function RunRow({
-  c, active, encounterId, onChange, onError,
-}: {
-  c: Combatant
-  active: boolean
-  encounterId: number
-  onChange: (e: Encounter) => void
-  onError: (m: string) => void
-}) {
-  const [delta, setDelta] = useState('')
-  const hpPct = c.max_hp > 0 ? (c.current_hp / c.max_hp) * 100 : 0
-  const hpColor = hpPct > 50 ? 'ok' : hpPct > 25 ? 'warn' : 'crit'
-
-  async function patch(body: Partial<Combatant>) {
-    try { onChange(await api.encounters.updateCombatant(encounterId, c.id, body)) }
-    catch (e) { onError((e as Error).message) }
-  }
-  function applyHp(sign: number) {
-    const n = parseInt(delta, 10)
-    if (isNaN(n) || n <= 0) return
-    setDelta('')
-    if (sign < 0) {
-      const fromTemp = Math.min(c.temp_hp, n)
-      patch({ temp_hp: c.temp_hp - fromTemp, current_hp: Math.max(0, c.current_hp - (n - fromTemp)) })
-    } else {
-      patch({ current_hp: Math.min(c.max_hp, c.current_hp + n) })
-    }
-  }
-
-  return (
-    <li className={`run-row ${active ? 'active' : ''} ${c.current_hp === 0 ? 'down' : ''}`}>
-      <span className="run-init">{c.initiative ?? '–'}</span>
-      <div className="run-who">
-        <strong>{c.name}</strong>
-        <span className="tags">
-          {c.is_pc ? <span className="tag pc">PC{c.level ? ` · Lvl ${c.level}` : ''}</span> : <span className="tag npc">NPC · AC {c.armor_class}</span>}
-          {c.concentrating && <span className="tag conc on">✦ conc</span>}
-          {c.conditions.map((cd) => (
-            <span key={cd.name} className="tag cond-tag" title={CONDITION_INFO[cd.name] ?? cd.name}>
-              {cd.name}{cd.rounds !== null ? ` ·${cd.rounds}` : ''}
-            </span>
-          ))}
-        </span>
-      </div>
-      <div className="run-hp">
-        <div className="hp-bar"><div className={`hp-fill ${hpColor}`} style={{ width: `${hpPct}%` }} /></div>
-        <span className="hp-num">{c.current_hp}/{c.max_hp}{c.temp_hp ? ` (+${c.temp_hp})` : ''}</span>
-      </div>
-      <div className="run-hpctrl">
-        <input type="number" value={delta} placeholder="0"
-          onChange={(e) => setDelta(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') applyHp(-1) }} />
-        <button className="danger" onClick={() => applyHp(-1)}>−</button>
-        <button className="heal" onClick={() => applyHp(1)}>+</button>
-      </div>
-    </li>
   )
 }
 
@@ -496,22 +358,27 @@ function CombatantRow({
         )}
       </div>
 
-      <div className="hp">
-        <div className="hp-bar"><div className={`hp-fill ${hpColor}`} style={{ width: `${hpPct}%` }} /></div>
-        <span className="hp-num">{c.current_hp}/{c.max_hp}{c.temp_hp ? ` (+${c.temp_hp})` : ''}</span>
-        <div className="hp-ctrl">
-          <input
-            type="number"
-            value={delta}
-            placeholder="0"
-            onChange={(e) => setDelta(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') applyHp(-1) }}
-          />
-          <button className="danger" onClick={() => applyHp(-1)}>Dmg</button>
-          <button className="heal" onClick={() => applyHp(1)}>Heal</button>
-          <button className="temp" title="Set temp HP to this value" onClick={setTempHp}>Temp</button>
+      {/* DM does not track player HP — HP bar/controls shown for monsters only */}
+      {c.is_pc ? (
+        <div className="hp pc-hp muted">HP tracked by player</div>
+      ) : (
+        <div className="hp">
+          <div className="hp-bar"><div className={`hp-fill ${hpColor}`} style={{ width: `${hpPct}%` }} /></div>
+          <span className="hp-num">{c.current_hp}/{c.max_hp}{c.temp_hp ? ` (+${c.temp_hp})` : ''}</span>
+          <div className="hp-ctrl">
+            <input
+              type="number"
+              value={delta}
+              placeholder="0"
+              onChange={(e) => setDelta(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') applyHp(-1) }}
+            />
+            <button className="danger" onClick={() => applyHp(-1)}>Dmg</button>
+            <button className="heal" onClick={() => applyHp(1)}>Heal</button>
+            <button className="temp" title="Set temp HP to this value" onClick={setTempHp}>Temp</button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="conds">
         {c.conditions.map((cd) => (
@@ -611,7 +478,6 @@ function AddCombatant({
 }) {
   const [mode, setMode] = useState<'pc' | 'monster'>('monster')
   const [name, setName] = useState('')
-  const [hp, setHp] = useState('')
   const [level, setLevel] = useState('')
   const [init, setInit] = useState('')
   const [monsterId, setMonsterId] = useState<number | ''>('')
@@ -646,16 +512,16 @@ function AddCombatant({
       } else {
         if (!name.trim()) return
         const lvl = level ? Math.min(20, Math.max(1, Number(level))) : undefined
-        const maxHp = hp ? Number(hp) : 1
+        // DM does not track player HP — max_hp is a placeholder, never shown/edited
         onAdded(await api.encounters.addCombatant(encounterId, {
-          name: name.trim(), is_pc: true, initiative, level: lvl, max_hp: maxHp,
+          name: name.trim(), is_pc: true, initiative, level: lvl, max_hp: 1,
         }))
         if (saveToParty && !party.some((p) => p.name.toLowerCase() === name.trim().toLowerCase())) {
-          await api.characters.create({ name: name.trim(), max_hp: maxHp, level: lvl ?? 1 })
+          await api.characters.create({ name: name.trim(), max_hp: 1, level: lvl ?? 1 })
           loadParty()
         }
       }
-      setName(''); setHp(''); setLevel(''); setInit(''); setMonsterId(''); setCount('1')
+      setName(''); setLevel(''); setInit(''); setMonsterId(''); setCount('1')
     } catch (err) {
       onError((err as Error).message)
     }
@@ -673,7 +539,7 @@ function AddCombatant({
           <span className="muted">Party:</span>
           {party.map((p) => (
             <span key={p.id} className="party-chip">
-              <button type="button" className="party-add" title={`Add ${p.name} (HP ${p.max_hp}, Lvl ${p.level})`} onClick={() => addSaved(p)}>
+              <button type="button" className="party-add" title={`Add ${p.name} (Lvl ${p.level})`} onClick={() => addSaved(p)}>
                 {p.name} <span className="muted">L{p.level}</span>
               </button>
               <button type="button" className="party-del" title="Remove from party" onClick={() => removeSaved(p.id)}>✕</button>
@@ -702,7 +568,6 @@ function AddCombatant({
         ) : (
           <>
             <input placeholder="PC name" value={name} onChange={(e) => setName(e.target.value)} />
-            <input type="number" placeholder="HP" value={hp} onChange={(e) => setHp(e.target.value)} style={{ width: 70 }} />
             <input type="number" placeholder="Lvl" min={1} max={20} value={level} onChange={(e) => setLevel(e.target.value)} style={{ width: 62 }} />
             <input type="number" placeholder="init" value={init} onChange={(e) => setInit(e.target.value)} style={{ width: 70 }} />
             <label className="save-party" title="Save to party for later">

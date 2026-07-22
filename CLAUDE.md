@@ -89,9 +89,10 @@ Initiative order: highest `initiative` first, `dex_modifier` as tiebreak, unroll
 Sorting is computed in `services/encounter.py` (not a DB order_by) — see `_initiative_key`.
 
 **Start combat** (`start_combat`) rolls initiative = d20 + dex_modifier for **every**
-combatant (PCs included — the frontend "Prowadź walkę" run mode relies on this), and
+combatant (PCs included — the frontend rolls initiative for the whole party), and
 rerolls monster HP from the linked statblock's `hit_dice` (e.g. `2d6`). PCs keep their
-entered HP. Dice logic in `services/dice.py` (`roll_expr`, `roll_initiative`);
+HP (the DM does not track player HP — the frontend hides PC HP entirely).
+Dice logic in `services/dice.py` (`roll_expr`, `roll_initiative`);
 `roll_expr` parses `NdM+K`, clamps to min 1, falls back to a default.
 
 **Open5e browse** re-ranks text-query results by name relevance (exact → prefix →
@@ -127,11 +128,13 @@ frontend/src/
 ├── api/client.ts             typed fetch wrapper + all API calls (mirrors backend schemas)
 ├── components/
 │   ├── EncounterList.tsx      list/create/delete encounters
-│   ├── EncounterTracker.tsx   combat view: round + turn controls (start/next/prev),
-│   │                          combatant rows (initiative, HP bar + dmg/heal, conditions),
-│   │                          roll-unrolled-initiative, add combatant (from monster or PC)
+│   ├── EncounterTracker.tsx   combat view: round + turn controls (start/next/prev/end),
+│   │                          combatant rows (initiative, monster HP bar + dmg/heal, conditions;
+│   │                          PC HP not tracked), add combatant (from monster or PC),
+│   │                          clicking a monster name docks its statblock in a side panel
 │   ├── MonsterBrowser.tsx     Open5e browse/filter/import + homebrew "My Library"
-│   └── MonsterDetail.tsx      statblock modal (abilities, AC/HP/CR, speed, traits, actions)
+│   └── MonsterDetail.tsx      statblock view (abilities, AC/HP/CR, speed, traits, actions);
+│                              `variant="modal"` (browser) or `"panel"` (docked side panel in tracker)
 ├── App.css                   all styles (no UI library), dark theme
 └── index.css                 reset + body
 ```
