@@ -155,7 +155,11 @@ Run migrations: `..\.venv\Scripts\python.exe -m aerich upgrade`
 ## Deployment Plan (mirror BoardGamesCounter)
 
 Target: **Render** (web service, free tier) + **Neon.tech** (PostgreSQL, free tier).
-TODO: Dockerfile, docker-compose, entrypoint (`aerich upgrade` + uvicorn), GitHub Actions CI/CD.
+TODO: Dockerfile, docker-compose, entrypoint (`aerich upgrade` + uvicorn).
+
+**CI** — `.github/workflows/ci.yml` runs on push/PR to `main`: two jobs, backend
+(`pytest` on Python 3.14) and frontend (`npm ci` + `npm run build` on Node 22).
+Frontend build requires `frontend/package-lock.json` (tracked, for `npm ci`).
 
 ## Status / TODO
 
@@ -164,6 +168,7 @@ TODO: Dockerfile, docker-compose, entrypoint (`aerich upgrade` + uvicorn), GitHu
 - [x] pytest suite in `backend/tests/` (dice, open5e, monsters, characters, encounters)
 - [x] Open5e browse/filter + bulk import (3200+ monsters — scraping deemed unnecessary)
 - [x] Frontend (React + Vite + TS): encounter tracker, HP/conditions, Open5e browse/import
+- [x] CI: GitHub Actions (pytest + frontend build) on push/PR
 - [ ] Auth (deferred — add later, as BGC did)
 - [ ] Docker + Render/Neon deploy
 ```
