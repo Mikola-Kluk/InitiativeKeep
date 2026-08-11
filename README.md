@@ -70,13 +70,14 @@ The backend must run on port 8000 for the dev proxy.
 
 ### Database
 
-Tortoise ORM (async) with [aerich](https://github.com/tortoise/aerich) migrations. SQLite in dev, PostgreSQL in prod via `DATABASE_URL`.
+Tortoise ORM (async). SQLite in dev, PostgreSQL in prod via `DATABASE_URL`.
+Tables are created from the models by `backend/init_db.py`
+(`generate_schemas(safe=True)`), which the container runs on start — dialect-correct
+on both SQLite and Postgres. No manual migration step for a fresh DB.
 
 ```powershell
-# first time, from backend/
-..\.venv\Scripts\python.exe -m aerich init-db
-# apply migrations
-..\.venv\Scripts\python.exe -m aerich upgrade
+# create tables from the models (safe to re-run), from backend/
+..\.venv\Scripts\python.exe init_db.py
 ```
 
 ## 🏛️ Architecture
@@ -128,13 +129,13 @@ Initiative order: highest `initiative` first, `dex_modifier` as tiebreak, unroll
 ## 🗺️ Roadmap
 
 - [x] Backend: models, monster CRUD, Open5e import, encounter + combat control
-- [x] aerich migrations + E2E smoke test
+- [x] Schema bootstrap from models (`init_db.py`) + E2E smoke test
 - [x] Open5e browse/filter + bulk import
+- [x] Paste-JSON import for homebrew monsters
 - [x] Frontend: encounter tracker, HP/conditions, Open5e browse/import
 - [x] Docker (multi-stage build, one-command run)
-- [ ] pytest suite in `backend/tests/`
-- [ ] Auth (deferred)
-- [ ] Render + Neon deploy
+- [x] pytest suite in `backend/tests/`
+- [x] Render + Neon deploy (live)
 
 ---
 

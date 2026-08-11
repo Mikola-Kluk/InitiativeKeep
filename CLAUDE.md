@@ -4,7 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-InitiativeKeep — combat/initiative tracker for D&D 2024 (5.5e). FastAPI backend (REST API), frontend TBD.
+InitiativeKeep — combat/initiative tracker for D&D 2024 (5.5e). FastAPI backend (REST API)
++ React/Vite/TS frontend, deployed on Render (Docker) with Neon Postgres.
 Sibling project **BoardGamesCounter** is the reference for conventions, Docker, and deployment.
 
 ## Quick start (Docker — runs everything)
@@ -15,11 +16,12 @@ docker compose up --build
 ```
 Then open **http://localhost:8000** — one container builds the React frontend and
 serves it from the FastAPI backend; data is stored in a SQLite file on the `ikdata`
-volume (survives restarts). Stop with `docker compose down`. This is also the image
-we deploy to AWS later (swap `DATABASE_URL` for a real Postgres).
+volume (survives restarts). Stop with `docker compose down`. This is the same image
+deployed to Render (there `DATABASE_URL` points at a Neon Postgres instead).
 
 Relevant files: `Dockerfile` (multi-stage: node builds SPA → python runs API),
-`docker-compose.yml`, `entrypoint.sh` (runs `aerich upgrade` then uvicorn).
+`docker-compose.yml`, `entrypoint.sh` (runs `init_db.py` then uvicorn),
+`render.yaml` (Render blueprint).
 
 ## Running (without Docker, for development)
 
@@ -146,19 +148,22 @@ No auth (backend has none yet). No router — `App.tsx` switches views via state
 
 ## Database
 
-- ORM: Tortoise ORM (async). Migrations: aerich.
+- ORM: Tortoise ORM (async).
 - Dev: SQLite (`sqlite://./db.sqlite3`). Prod: PostgreSQL via `DATABASE_URL` (Neon).
 
-Init migrations (first time), from `backend/`:
-```powershell
-..\.venv\Scripts\python.exe -m aerich init-db
-```
-Run migrations: `..\.venv\Scripts\python.exe -m aerich upgrade`
+Schema is bootstrapped from the models at container start by `backend/init_db.py`
+(`Tortoise.generate_schemas(safe=True)` → `CREATE TABLE IF NOT EXISTS`), **not** aerich.
+The committed aerich migrations under `backend/migrations/` are SQLite-only SQL
+(they use `AUTOINCREMENT`, which Postgres rejects) and are not the deploy path.
+`generate_schemas` creates missing tables but does **not** ALTER existing ones — a
+schema change against a non-empty prod DB must be handled manually.
 
-## Deployment Plan (mirror BoardGamesCounter)
+## Deployment (Render + Neon)
 
-Target: **Render** (web service, free tier) + **Neon.tech** (PostgreSQL, free tier).
-TODO: Dockerfile, docker-compose, entrypoint (`aerich upgrade` + uvicorn).
+Live on **Render** (Docker web service, free tier) with a **Neon.tech** Postgres
+(free tier). Config is in-repo: `render.yaml` blueprint (`runtime: docker`,
+`healthCheckPath: /docs`), `Dockerfile`, `entrypoint.sh` (`init_db.py` → uvicorn).
+`DATABASE_URL` is set in the Render UI (`sync: false`), not committed.
 
 **CI** — `.github/workflows/ci.yml` runs on push/PR to `main`: two jobs, backend
 (`pytest` on Python 3.14) and frontend (`npm ci` + `npm run build` on Node 22).
@@ -172,6 +177,7 @@ Frontend build requires `frontend/package-lock.json` (tracked, for `npm ci`).
 - [x] Open5e browse/filter + bulk import (3200+ monsters — scraping deemed unnecessary)
 - [x] Frontend (React + Vite + TS): encounter tracker, HP/conditions, Open5e browse/import
 - [x] CI: GitHub Actions (pytest + frontend build) on push/PR
-- [ ] Auth (deferred — add later, as BGC did)
-- [ ] Docker + Render/Neon deploy
+- [x] Docker + Render/Neon deploy (live; `render.yaml` blueprint, schema from `init_db.py`)
+- [x] Paste-JSON import for homebrew monsters (`POST /monsters/import-json`)
+- Auth intentionally out of scope — personal single-user app
 ```
