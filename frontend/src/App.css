@@ -260,6 +260,21 @@ button.conc-alert {
 }
 .modal-close:hover { color: var(--crimson); background: none; }
 
+.help-btn {
+  width: 1.5rem; height: 1.5rem; padding: 0; border-radius: 50%;
+  font-size: 0.9rem; line-height: 1; vertical-align: middle;
+}
+.json-help { margin: 8px 0; }
+.json-help .link-strong { margin-left: 8px; }
+.json-example {
+  max-height: 260px; overflow: auto; margin: 6px 0 0;
+  padding: 10px 12px; border-radius: 6px;
+  background: var(--panel-2, rgba(0, 0, 0, 0.25));
+  border: 1px solid var(--border, #333);
+  font-family: monospace; font-size: 0.8rem; line-height: 1.5;
+  white-space: pre; color: var(--text, inherit);
+}
+
 .statblock { font-family: var(--serif); }
 .statblock h2 {
   margin: 0 0 2px; color: var(--crimson); font-size: 1.75rem;

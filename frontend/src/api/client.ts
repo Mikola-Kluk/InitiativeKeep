@@ -136,6 +136,8 @@ export const api = {
     get: (id: number) => request<Monster>(`/monsters/${id}`),
     create: (data: Partial<Monster>) =>
       request<Monster>('/monsters/', { method: 'POST', body: JSON.stringify(data) }),
+    importJson: (payload: unknown) =>
+      request<Monster>('/monsters/import-json', { method: 'POST', body: JSON.stringify(payload) }),
     update: (id: number, data: Partial<Monster>) =>
       request<Monster>(`/monsters/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     remove: (id: number) =>

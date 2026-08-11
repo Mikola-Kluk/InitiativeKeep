@@ -102,6 +102,9 @@ name-sorted, which otherwise buries the obvious hit — see `_name_rank` in `ser
 ## API (key endpoints)
 
 - `GET/POST/PATCH/DELETE /api/v1/monsters` — homebrew CRUD, `?search=`
+- `POST /api/v1/monsters/import-json` — add a homebrew monster from a raw JSON
+  statblock (native or Open5e shape; `special_abilities` → traits). Validated via
+  `MonsterCreate`; bad JSON → 422. See `normalize_monster_payload` in `services/monster.py`.
 - `GET  /api/v1/open5e/monsters` — browse Open5e (3200+ statblocks), filters:
   `?q=`, `?cr=`, `?type=`, `?document=` (source slug), `?page=`; paginated (20/page)
 - `GET  /api/v1/open5e/sources` — list document sources (srd, tob, cc, ...) for filters

@@ -24,6 +24,7 @@ Run encounters, track HP and conditions, and pull from 3200+ monster statblocks 
 - **⚖️ Smarter difficulty** — the budget is taken from your PCs' levels automatically, and monster XP is scaled by an encounter multiplier so packs read as harder than raw XP.
 - **🐉 Monster library** — browse and filter [Open5e](https://open5e.com)'s 3200+ statblocks by CR, type, or source; import one at a time or in bulk.
 - **🛠️ Statblock creator** — build your own NPCs and bosses with a full editor: size/type/AC/HP/hit dice, speeds, six ability scores, CR, and repeatable traits, actions, reactions, and legendary actions. Edit them anytime; a homebrew boss with legendary actions spawns with the 3-orb pool automatically.
+- **📋 Paste JSON** — drop in a full statblock as JSON (this app's shape or an Open5e export) and it lands in your library as homebrew — no field-by-field typing.
 - **📜 Auto rolls** — on combat start, every combatant rolls initiative (`d20 + DEX`); NPCs also reroll HP from their hit dice.
 - **📖 Statblock detail** — dock a monster's full statblock (abilities, AC/HP/CR, speed, traits, actions) in a side panel while you keep editing HP and conditions.
 - **📱 Responsive** — works on phone and tablet: combatant cards reflow, tables scroll, and the condition picker is tap-friendly.

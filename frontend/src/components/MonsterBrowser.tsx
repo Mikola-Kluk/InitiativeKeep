@@ -114,6 +114,7 @@ function Library() {
   // null = editor closed, 'new' = create, Monster = edit that statblock
   const [editing, setEditing] = useState<Monster | 'new' | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [pasting, setPasting] = useState(false)
 
   function load() { api.monsters.list().then(setMonsters).catch((e) => setError(e.message)) }
   useEffect(load, [])
@@ -144,6 +145,7 @@ function Library() {
     <div>
       <div className="row">
         <button className="run" onClick={() => setEditing('new')}>＋ Create statblock</button>
+        <button className="ghost" onClick={() => setPasting(true)} title="Paste a JSON statblock (native or Open5e shape)">📋 Paste JSON</button>
         <span className="muted">Build a custom NPC or boss — full stats, attacks, traits, legendary actions.</span>
         {hasImported && (
           <button className="ghost" disabled={refreshing} onClick={refresh} title="Re-fetch imported statblocks from Open5e (defenses, senses, reactions, legendary actions)">
@@ -184,6 +186,7 @@ function Library() {
       </table>
       </div>
 
+      {pasting && <PasteJson onClose={() => setPasting(false)} onSaved={() => { setPasting(false); load() }} />}
       {detailId !== null && <MonsterDetail monsterId={detailId} onClose={() => setDetailId(null)} />}
       {editing !== null && (
         <MonsterEditor
@@ -192,6 +195,113 @@ function Library() {
           onSaved={() => { setEditing(null); load() }}
         />
       )}
+    </div>
+  )
+}
+
+const EXAMPLE_JSON = `{
+  "name": "Goblin Boss",
+  "size": "Small",
+  "type": "humanoid",
+  "alignment": "neutral evil",
+  "armor_class": 17,
+  "armor_desc": "chain shirt, shield",
+  "hit_points": 21,
+  "hit_dice": "6d6",
+  "speed": { "walk": 30 },
+  "strength": 10,
+  "dexterity": 14,
+  "constitution": 10,
+  "intelligence": 10,
+  "wisdom": 8,
+  "charisma": 10,
+  "challenge_rating": "1",
+  "cr": 1,
+  "senses": "darkvision 60 ft., passive Perception 9",
+  "languages": "Common, Goblin",
+  "traits": [
+    { "name": "Nimble Escape", "desc": "Disengages or Hides as a bonus action." }
+  ],
+  "actions": [
+    { "name": "Scimitar", "desc": "Melee: +4 to hit, 5 ft., one target. Hit: 5 (1d6 + 2) slashing." }
+  ],
+  "reactions": [
+    { "name": "Redirect Attack", "desc": "Swaps places with a nearby ally to take a hit." }
+  ],
+  "legendary_actions": []
+}`
+
+function PasteJson({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [text, setText] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
+
+  async function save() {
+    setError(null)
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(text)
+    } catch {
+      setError('Invalid JSON — check for a stray comma or missing quote.')
+      return
+    }
+    setBusy(true)
+    try {
+      const m = await api.monsters.importJson(parsed)
+      onSaved()
+      alert(`Added "${m.name}" to your library.`)
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <button className="modal-close" onClick={onClose}>✕</button>
+        <h2>
+          Paste JSON statblock{' '}
+          <button
+            className="ghost help-btn"
+            title="Show the expected JSON format"
+            aria-label="Show example JSON"
+            onClick={() => setShowHelp((s) => !s)}
+          >?</button>
+        </h2>
+        <p className="muted">
+          Paste a single monster as JSON — this app's own shape, or an Open5e statblock
+          (<code>special_abilities</code> is read as traits). It's saved as homebrew.
+        </p>
+        {showHelp && (
+          <div className="json-help">
+            <p className="muted">
+              Only <code>name</code> is required; everything else falls back to a default.
+              <button className="link-strong" onClick={() => { setText(EXAMPLE_JSON); setShowHelp(false) }}>
+                Use this example
+              </button>
+            </p>
+            <pre className="json-example"><code>{EXAMPLE_JSON}</code></pre>
+          </div>
+        )}
+        <textarea
+          rows={16}
+          spellCheck={false}
+          placeholder='{ "name": "Goblin Boss", "armor_class": 17, "hit_points": 21, ... }'
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          style={{ width: '100%', fontFamily: 'monospace' }}
+        />
+        {error && <p className="error">{error}</p>}
+        <div className="row">
+          <button className="run" disabled={busy || !text.trim()} onClick={save}>
+            {busy ? 'Adding…' : 'Add to library'}
+          </button>
+          <button className="ghost" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
     </div>
   )
 }
