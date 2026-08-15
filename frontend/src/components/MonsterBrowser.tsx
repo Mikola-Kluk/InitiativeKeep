@@ -100,7 +100,7 @@ function Open5eBrowser() {
       )}
 
       {previewSlug !== null && (
-        <MonsterDetail open5eSlug={previewSlug} onClose={() => setPreviewSlug(null)} />
+        <MonsterDetail open5eSlug={previewSlug} variant="panel" onClose={() => setPreviewSlug(null)} />
       )}
     </div>
   )
@@ -187,7 +187,7 @@ function Library() {
       </div>
 
       {pasting && <PasteJson onClose={() => setPasting(false)} onSaved={() => { setPasting(false); load() }} />}
-      {detailId !== null && <MonsterDetail monsterId={detailId} onClose={() => setDetailId(null)} />}
+      {detailId !== null && <MonsterDetail monsterId={detailId} variant="panel" onClose={() => setDetailId(null)} />}
       {editing !== null && (
         <MonsterEditor
           monster={editing === 'new' ? undefined : editing}

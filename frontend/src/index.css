@@ -1,39 +1,66 @@
 :root {
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   color-scheme: light;
 
   /* ── parchment / rulebook theme ────────────────────────────── */
-  --bg:        #e5d9bb;   /* page — mid parchment */
-  --surface:   #f3ead4;   /* card / panel — laid paper */
-  --surface-2: #ede1c5;   /* inputs / inset */
-  --surface-3: #e2d4b2;   /* chips / tag ground */
-  --border:    #d2bf96;
-  --border-2:  #c0a878;
+  /* page sits clearly darker than the cards, so panels read as sheets on a desk */
+  --bg:        #e8ddc1;   /* page — light parchment */
+  --bg-deep:   #e0d3b2;   /* page edges — barely deeper, just enough to shape */
+  --surface:   #faf4e4;   /* card / panel — laid paper */
+  --surface-2: #eee3c9;   /* inputs / inset */
+  --surface-3: #e4d7b7;   /* chips / tag ground */
+  --paper-hi:  #fdfaf1;   /* top of a paper gradient */
+  --paper-lo:  #f5eeda;   /* bottom of a paper gradient */
+  --border:    #cdb88c;
+  --border-2:  #b39c69;
+  --pewter:    #9c8557;   /* neutral trim — where gold would over-egg it */
 
   --ink:      #2c2013;   /* body text */
-  --ink-dim:  #5b4a31;
-  --muted:    #897655;
+  --ink-dim:  #57462d;
+  --muted:    #8a7654;
+
+  /* secondary hues, so the page is not one colour with shading */
+  --steel:      #2a5675;   /* armour / defence */
+  --steel-lt:   #dbe5ec;
+  --steel-edge: #a5bccd;
+  --plum:       #5c3f60;   /* conditions */
+  --plum-lt:    #e8dfea;
+  --plum-edge:  #b9a2bd;
 
   --accent:      #9a2b1e;   /* PHB crimson — primary */
   --accent-soft: #b8422f;
-  --accent-deep: #7a2015;
+  --accent-deep: #6d1c12;
   --accent-glow: rgba(154, 43, 30, 0.18);
 
   --crimson:     #9a2b1e;
-  --crimson-deep:#7a2015;
+  --crimson-deep:#6d1c12;
   --gold:        #a9791f;   /* legendary / trim */
-  --gold-lt:     #c79632;
+  --gold-lt:     #d2a743;
+  --gold-glow:   rgba(169, 121, 31, 0.24);
 
   --ok:   #3f8f4f;
   --warn: #bf861c;
   --crit: #b3231b;
 
-  --radius: 9px;
-  --shadow: 0 8px 24px rgba(74, 54, 24, 0.18);
-  --shadow-sm: 0 1px 2px rgba(74, 54, 24, 0.12);
+  --radius: 10px;
+  --radius-sm: 7px;
 
-  /* serif for the rulebook feel */
-  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  /* layered shadows — paper lifting off paper, not a flat drop */
+  --shadow-sm: 0 1px 1px rgba(74, 54, 24, 0.14), 0 2px 5px rgba(74, 54, 24, 0.08);
+  --shadow:    0 2px 6px rgba(74, 54, 24, 0.14), 0 12px 30px rgba(74, 54, 24, 0.18);
+  --shadow-lg: 0 4px 12px rgba(44, 32, 19, 0.2), 0 26px 60px rgba(44, 32, 19, 0.3);
+  /* hairline that reads as a paper edge catching light */
+  --edge: inset 0 1px 0 rgba(255, 252, 240, 0.7);
+
+  /* rulebook type: engraved caps for headings, garalde for prose */
+  --display: "Cinzel", "Trajan Pro", "Palatino Linotype", Palatino, Georgia, serif;
+  --serif: "EB Garamond", "Iowan Old Style", "Palatino Linotype", Palatino,
+           "Book Antiqua", Georgia, serif;
+
+  font-family: var(--serif);
+  font-size: 17px;              /* EB Garamond runs small */
+  font-synthesis-weight: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 * { box-sizing: border-box; }
@@ -43,8 +70,42 @@ body {
   color: var(--ink);
   font-family: var(--serif);
   background:
-    radial-gradient(1000px 640px at 82% -10%, rgba(154, 43, 30, 0.06), transparent 60%),
-    radial-gradient(880px 560px at 4% 108%, rgba(169, 121, 31, 0.08), transparent 55%),
-    var(--bg);
+    radial-gradient(1100px 700px at 82% -12%, rgba(154, 43, 30, 0.05), transparent 62%),
+    radial-gradient(900px 580px at 4% 108%, rgba(169, 121, 31, 0.06), transparent 58%),
+    linear-gradient(170deg, var(--bg), var(--bg-deep));
   background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* fibrous paper grain. soft-light, not multiply — multiply only ever darkens,
+   and three stacked darkening layers turned the page to mud. */
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: -2; pointer-events: none;
+  opacity: 0.5; mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='200' height='200' filter='url(%23n)'/></svg>");
+}
+
+/* page vignette — a hint of edge shading, nothing more */
+body::after {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  box-shadow: inset 0 0 160px rgba(74, 54, 24, 0.07);
+}
+
+::selection { background: var(--accent-glow); }
+
+/* parchment scrollbars */
+* { scrollbar-color: var(--border-2) transparent; scrollbar-width: thin; }
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-2); border-radius: 6px;
+  border: 3px solid transparent; background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: content-box; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

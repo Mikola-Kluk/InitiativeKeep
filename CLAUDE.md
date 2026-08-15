@@ -132,17 +132,26 @@ frontend/src/
 ├── App.tsx                   tab shell: Encounters | Monsters; holds active encounter
 ├── api/client.ts             typed fetch wrapper + all API calls (mirrors backend schemas)
 ├── components/
-│   ├── EncounterList.tsx      list/create/delete encounters
+│   ├── EncounterList.tsx      list/create/delete encounters (cards: round seal,
+│   │                          player/monster tags, started vs. not-started)
 │   ├── EncounterTracker.tsx   combat view: round + turn controls (start/next/prev/end),
-│   │                          combatant rows (initiative, monster HP bar + dmg/heal, conditions;
-│   │                          PC HP not tracked), add combatant (from monster or PC),
+│   │                          combatant rows (initiative, AC shield / PC level medal,
+│   │                          monster HP bar + dmg/heal, conditions; PC HP not tracked),
+│   │                          add combatant (from monster or PC),
 │   │                          clicking a monster name docks its statblock in a side panel
 │   ├── MonsterBrowser.tsx     Open5e browse/filter/import + homebrew "My Library"
 │   └── MonsterDetail.tsx      statblock view (abilities, AC/HP/CR, speed, traits, actions);
-│                              `variant="modal"` (browser) or `"panel"` (docked side panel in tracker)
-├── App.css                   all styles (no UI library), dark theme
-└── index.css                 reset + body
+│                              always rendered with `variant="panel"` (docked side panel);
+│                              `variant="modal"` still supported but unused
+├── App.css                   all styles (no UI library), dark parchment/fantasy theme
+└── index.css                 reset + body + CSS custom properties (palette, type scale)
 ```
+
+While the statblock panel is open the tracker sets `body.panel-open`, which shrinks
+the page so rows are not hidden under the docked panel.
+
+Fonts: **Cinzel** (headings) + **EB Garamond** (body), loaded from Google Fonts in
+`frontend/index.html` — no network, no fonts: the CSS stack falls back to system serif.
 
 No auth (backend has none yet). No router — `App.tsx` switches views via state.
 

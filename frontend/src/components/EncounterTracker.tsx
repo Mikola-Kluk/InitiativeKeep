@@ -93,6 +93,13 @@ export default function EncounterTracker({
   useEffect(load, [load])
   useEffect(() => { api.monsters.list().then(setMonsters).catch(() => {}) }, [])
 
+  // The statblock docks over the right edge of the viewport. Flag the body so
+  // the page can give up that strip instead of hiding rows underneath it.
+  useEffect(() => {
+    document.body.classList.toggle('panel-open', detailId !== null)
+    return () => document.body.classList.remove('panel-open')
+  }, [detailId])
+
   if (!enc) return <p className="muted">Loading… {error && <span className="error">{error}</span>}</p>
 
   const started = enc.current_turn_index >= 0
@@ -113,7 +120,10 @@ export default function EncounterTracker({
       <div className="row spread">
         <button className="link" onClick={onBack}>← Back</button>
         <h2>{enc.name}</h2>
-        <span className="round-badge">Round {enc.round}</span>
+        <span className="round-badge" title={`Round ${enc.round}`}>
+          <small>Round</small>
+          <b>{enc.round}</b>
+        </span>
       </div>
 
       {error && <p className="error">{error}</p>}
@@ -304,7 +314,8 @@ function CombatantRow({
   const hpColor = hpPct > 50 ? 'ok' : hpPct > 25 ? 'warn' : 'crit'
 
   return (
-    <li className={`combatant ${active ? 'active' : ''} ${c.current_hp === 0 ? 'down' : ''}`}>
+    // PCs never carry HP here, so `down` must not grey every player out
+    <li className={`combatant ${c.is_pc ? 'is-pc' : ''} ${active ? 'active' : ''} ${!c.is_pc && c.current_hp === 0 ? 'down' : ''}`}>
       <div className="init">
         <input
           className="init-input"
@@ -315,18 +326,35 @@ function CombatantRow({
         />
       </div>
 
-      <div className="who">
-        {c.monster_id !== null ? (
-          <button className="link-strong name-btn" onClick={() => onShowDetail(c.monster_id!)}>
-            {c.name}
-          </button>
+      {/* own column, so shields and medals line up down the list */}
+      <div className="ac-slot">
+        {c.is_pc ? (
+          <span className="pc-medal" title={c.level ? `Level ${c.level}` : 'Player character'}>
+            <small>Lvl</small>
+            <b>{c.level ?? '—'}</b>
+          </span>
         ) : (
-          <strong>{c.name}</strong>
+          <span className="ac-shield" title={`Armor Class ${c.armor_class}`}>
+            <span className="ac-shield-num">{c.armor_class}</span>
+          </span>
         )}
+      </div>
+
+      <div className="who">
+        <div className="who-head">
+          {c.monster_id !== null ? (
+            <button className="link-strong name-btn" onClick={() => onShowDetail(c.monster_id!)}>
+              {c.name}
+            </button>
+          ) : (
+            <strong>{c.name}</strong>
+          )}
+        </div>
         <span className="tags">
+          {/* level lives on the medal now — no need to say it twice */}
           {c.is_pc
-            ? <span className="tag pc">PC{c.level ? ` · Lvl ${c.level}` : ''}</span>
-            : <><span className="tag npc">NPC</span><span className="tag">AC {c.armor_class}</span></>}
+            ? <span className="tag pc">Player</span>
+            : <span className="tag npc">NPC</span>}
           <button
             className={`tag conc ${c.concentrating ? 'on' : ''}`}
             title="Concentration — toggle; taking damage shows the CON save DC"
@@ -360,14 +388,23 @@ function CombatantRow({
 
       {/* DM does not track player HP — HP bar/controls shown for monsters only */}
       {c.is_pc ? (
-        <div className="hp pc-hp muted">HP tracked by player</div>
+        <div className="hp pc-hp">
+          <span className="pc-hp-mark">✦</span>
+          <span>HP tracked by player</span>
+        </div>
       ) : (
         <div className="hp">
-          <div className="hp-bar"><div className={`hp-fill ${hpColor}`} style={{ width: `${hpPct}%` }} /></div>
-          <span className="hp-num">{c.current_hp}/{c.max_hp}{c.temp_hp ? ` (+${c.temp_hp})` : ''}</span>
+          <div className="hp-row">
+            <div className="hp-bar"><div className={`hp-fill ${hpColor}`} style={{ width: `${hpPct}%` }} /></div>
+            <span className={`hp-num ${hpColor}`}>
+              <b>{c.current_hp}</b><i>/{c.max_hp}</i>
+              {c.temp_hp ? <em>+{c.temp_hp}</em> : null}
+            </span>
+          </div>
           <div className="hp-ctrl">
             <input
               type="number"
+              inputMode="numeric"
               value={delta}
               placeholder="0"
               onChange={(e) => setDelta(e.target.value)}
