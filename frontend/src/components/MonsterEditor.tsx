@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api, type Monster } from '../api/client'
+import { SchemaTable } from './StatblockSchema'
 
 type Entry = { name: string; desc: string }
 type AbilityKey = 'strength' | 'dexterity' | 'constitution' | 'intelligence' | 'wisdom' | 'charisma'
@@ -76,7 +77,37 @@ function toDraft(m?: Monster): Draft {
   }
 }
 
-const SIZES = ['Tiny', 'Small', 'Medium', 'Large', 'Huge', 'Gargantuan']
+function toPayload(d: Draft): Partial<Monster> {
+  const clean = (list: Entry[]) => list.filter((x) => x.name.trim() || x.desc.trim())
+  return {
+    name: d.name.trim(),
+    size: d.size || null,
+    type: d.type.trim() || null,
+    alignment: d.alignment.trim() || null,
+    armor_class: d.armor_class,
+    armor_desc: d.armor_desc.trim() || null,
+    hit_points: Math.max(1, d.hit_points),
+    hit_dice: d.hit_dice.trim() || null,
+    speed: d.speed,
+    strength: d.strength, dexterity: d.dexterity, constitution: d.constitution,
+    intelligence: d.intelligence, wisdom: d.wisdom, charisma: d.charisma,
+    challenge_rating: d.challenge_rating.trim() || null,
+    cr: parseCr(d.challenge_rating),
+    damage_vulnerabilities: d.damage_vulnerabilities.trim() || null,
+    damage_resistances: d.damage_resistances.trim() || null,
+    damage_immunities: d.damage_immunities.trim() || null,
+    condition_immunities: d.condition_immunities.trim() || null,
+    senses: d.senses.trim() || null,
+    languages: d.languages.trim() || null,
+    traits: clean(d.traits),
+    actions: clean(d.actions),
+    reactions: clean(d.reactions),
+    legendary_desc: d.legendary_desc.trim() || null,
+    legendary_actions: clean(d.legendary_actions),
+  }
+}
+
+const SIZES = ['Tiny','Small', 'Medium', 'Large', 'Huge', 'Gargantuan']
 
 export default function MonsterEditor({
   monster, onClose, onSaved,
@@ -88,6 +119,8 @@ export default function MonsterEditor({
   const [d, setD] = useState<Draft>(() => toDraft(monster))
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [help, setHelp] = useState<'fields' | 'json' | null>(null)
+  const json = help === 'json' ? JSON.stringify(toPayload(d), null, 2) : ''
   const editing = monster !== undefined && !monster.is_homebrew ? false : monster !== undefined
 
   function set<K extends keyof Draft>(key: K, value: Draft[K]) {
@@ -108,33 +141,7 @@ export default function MonsterEditor({
     if (!d.name.trim()) { setError('Name is required.'); return }
     setSaving(true)
     setError(null)
-    const clean = (list: Entry[]) => list.filter((x) => x.name.trim() || x.desc.trim())
-    const payload: Partial<Monster> = {
-      name: d.name.trim(),
-      size: d.size || null,
-      type: d.type.trim() || null,
-      alignment: d.alignment.trim() || null,
-      armor_class: d.armor_class,
-      armor_desc: d.armor_desc.trim() || null,
-      hit_points: Math.max(1, d.hit_points),
-      hit_dice: d.hit_dice.trim() || null,
-      speed: d.speed,
-      strength: d.strength, dexterity: d.dexterity, constitution: d.constitution,
-      intelligence: d.intelligence, wisdom: d.wisdom, charisma: d.charisma,
-      challenge_rating: d.challenge_rating.trim() || null,
-      cr: parseCr(d.challenge_rating),
-      damage_vulnerabilities: d.damage_vulnerabilities.trim() || null,
-      damage_resistances: d.damage_resistances.trim() || null,
-      damage_immunities: d.damage_immunities.trim() || null,
-      condition_immunities: d.condition_immunities.trim() || null,
-      senses: d.senses.trim() || null,
-      languages: d.languages.trim() || null,
-      traits: clean(d.traits),
-      actions: clean(d.actions),
-      reactions: clean(d.reactions),
-      legendary_desc: d.legendary_desc.trim() || null,
-      legendary_actions: clean(d.legendary_actions),
-    }
+    const payload = toPayload(d)
     try {
       if (editing && monster) await api.monsters.update(monster.id, payload)
       else await api.monsters.create(payload)
@@ -149,7 +156,36 @@ export default function MonsterEditor({
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal editor" onClick={(e) => e.stopPropagation()}>
         <button className="modal-close" onClick={onClose}>✕</button>
-        <h2>{editing ? 'Edit statblock' : 'New statblock'}</h2>
+        <h2>
+          {editing ? 'Edit statblock' : 'New statblock'}{' '}
+          <button
+            type="button"
+            className="ghost help-btn"
+            title="Show the statblock JSON format"
+            aria-label="Show the statblock JSON format"
+            onClick={() => setHelp((h) => (h ? null : 'fields'))}
+          >?</button>
+        </h2>
+        {help && (
+          <div className="json-help">
+            <div className="row">
+              <button type="button" className={help === 'fields' ? 'active' : ''} onClick={() => setHelp('fields')}>Fields</button>
+              <button type="button" className={help === 'json' ? 'active' : ''} onClick={() => setHelp('json')}>This statblock as JSON</button>
+            </div>
+            {help === 'fields' ? (
+              <SchemaTable />
+            ) : (
+              <>
+                <p className="muted">
+                  What this form sends, updated as you type. Works as-is in Paste JSON
+                  or <code>POST /api/v1/monsters</code>.
+                  <button type="button" className="link-strong" onClick={() => navigator.clipboard?.writeText(json)}>Copy</button>
+                </p>
+                <pre className="json-example"><code>{json}</code></pre>
+              </>
+            )}
+          </div>
+        )}
         {error && <p className="error">{error}</p>}
 
         <form onSubmit={save}>
@@ -165,23 +201,29 @@ export default function MonsterEditor({
             <label>Type
               <input value={d.type} onChange={(e) => set('type', e.target.value)} placeholder="humanoid, dragon…" />
             </label>
-            <label>Alignment
+            <label className="ed-wide">Alignment
               <input value={d.alignment} onChange={(e) => set('alignment', e.target.value)} placeholder="chaotic evil" />
             </label>
+            <label>Challenge rating
+              <input value={d.challenge_rating} onChange={(e) => set('challenge_rating', e.target.value)} placeholder="5, 1/4, 1/2…" />
+            </label>
+            <span className="ed-crhint muted">
+              {d.challenge_rating.trim() ? `→ CR ${parseCr(d.challenge_rating) ?? '?'} · difficulty & XP` : 'drives difficulty & XP'}
+            </span>
           </div>
 
           <div className="ed-grid">
             <label>AC
               <input type="number" value={d.armor_class} onChange={(e) => set('armor_class', num(e.target.value, 10))} />
             </label>
-            <label className="ed-wide">Armor note
-              <input value={d.armor_desc} onChange={(e) => set('armor_desc', e.target.value)} placeholder="natural armor, plate…" />
-            </label>
             <label>HP
               <input type="number" value={d.hit_points} onChange={(e) => set('hit_points', num(e.target.value, 1))} />
             </label>
             <label>Hit dice
-              <input value={d.hit_dice} onChange={(e) => set('hit_dice', e.target.value)} placeholder="4d8+8 (rerolled on start)" />
+              <input value={d.hit_dice} onChange={(e) => set('hit_dice', e.target.value)} placeholder="4d8+8" title="Monster HP is rerolled from this when combat starts" />
+            </label>
+            <label>Armor note
+              <input value={d.armor_desc} onChange={(e) => set('armor_desc', e.target.value)} placeholder="natural armor…" />
             </label>
           </div>
 
@@ -210,15 +252,6 @@ export default function MonsterEditor({
               })}
             </div>
           </fieldset>
-
-          <div className="ed-grid">
-            <label>Challenge rating
-              <input value={d.challenge_rating} onChange={(e) => set('challenge_rating', e.target.value)} placeholder="5, 1/4, 1/2…" />
-            </label>
-            <span className="ed-crhint muted">
-              {d.challenge_rating.trim() ? `→ CR ${parseCr(d.challenge_rating) ?? '?'} (drives XP / difficulty)` : 'set for encounter difficulty & XP'}
-            </span>
-          </div>
 
           <fieldset className="ed-fs">
             <legend>Defenses & senses</legend>

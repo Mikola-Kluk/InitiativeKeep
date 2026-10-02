@@ -107,6 +107,10 @@ name-sorted, which otherwise buries the obvious hit — see `_name_rank` in `ser
 - `POST /api/v1/monsters/import-json` — add a homebrew monster from a raw JSON
   statblock (native or Open5e shape; `special_abilities` → traits). Validated via
   `MonsterCreate`; bad JSON → 422. See `normalize_monster_payload` in `services/monster.py`.
+- `POST /api/v1/monsters/import-json/bulk` — many homebrew monsters at once: a JSON list,
+  or `{"results"|"monsters": [...]}` (e.g. a saved Open5e page). Max 500. Per-item
+  validation, partial success → 200 `{imported: [MonsterOut], failed: [{index, name, error}]}`;
+  bad envelope / empty / over limit → 422. See `create_monsters_from_json`.
 - `GET  /api/v1/open5e/monsters` — browse Open5e (3200+ statblocks), filters:
   `?q=`, `?cr=`, `?type=`, `?document=` (source slug), `?page=`; paginated (20/page)
 - `GET  /api/v1/open5e/sources` — list document sources (srd, tob, cc, ...) for filters
@@ -139,7 +143,11 @@ frontend/src/
 │   │                          monster HP bar + dmg/heal, conditions; PC HP not tracked),
 │   │                          add combatant (from monster or PC),
 │   │                          clicking a monster name docks its statblock in a side panel
-│   ├── MonsterBrowser.tsx     Open5e browse/filter/import + homebrew "My Library"
+│   ├── MonsterBrowser.tsx     Open5e browse/filter/import + homebrew "My Library";
+│   │                          Paste JSON dialog (one object → import-json, list → /bulk)
+│   ├── MonsterEditor.tsx      homebrew statblock form; "?" shows field schema + live JSON
+│   ├── StatblockSchema.tsx    shared statblock field table + JSON examples (mirror of
+│   │                          MonsterCreate — update by hand when the schema changes)
 │   └── MonsterDetail.tsx      statblock view (abilities, AC/HP/CR, speed, traits, actions);
 │                              always rendered with `variant="panel"` (docked side panel);
 │                              `variant="modal"` still supported but unused
@@ -187,6 +195,6 @@ Frontend build requires `frontend/package-lock.json` (tracked, for `npm ci`).
 - [x] Frontend (React + Vite + TS): encounter tracker, HP/conditions, Open5e browse/import
 - [x] CI: GitHub Actions (pytest + frontend build) on push/PR
 - [x] Docker + Render/Neon deploy (live; `render.yaml` blueprint, schema from `init_db.py`)
-- [x] Paste-JSON import for homebrew monsters (`POST /monsters/import-json`)
+- [x] Paste-JSON import for homebrew monsters (`POST /monsters/import-json`, `/import-json/bulk`)
 - Auth intentionally out of scope — personal single-user app
 ```

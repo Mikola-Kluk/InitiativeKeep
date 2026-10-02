@@ -80,3 +80,14 @@ class MonsterOut(MonsterBase):
     dex_modifier: int
 
     model_config = {"from_attributes": True}
+
+
+class BulkImportFailure(BaseModel):
+    index: int               # position in the submitted list
+    name: str | None = None  # the item's name, if it had one
+    error: str
+
+
+class MonsterBulkImportResult(BaseModel):
+    imported: list[MonsterOut] = []
+    failed: list[BulkImportFailure] = []

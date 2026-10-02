@@ -127,6 +127,11 @@ function qs(params: Record<string, string | number | undefined>): string {
   return parts.length ? `?${parts.join('&')}` : ''
 }
 
+export interface BulkMonsterImport {
+  imported: Monster[]
+  failed: { index: number; name: string | null; error: string }[]
+}
+
 // ---- API ----
 
 export const api = {
@@ -138,6 +143,8 @@ export const api = {
       request<Monster>('/monsters/', { method: 'POST', body: JSON.stringify(data) }),
     importJson: (payload: unknown) =>
       request<Monster>('/monsters/import-json', { method: 'POST', body: JSON.stringify(payload) }),
+    importJsonBulk: (payload: unknown) =>
+      request<BulkMonsterImport>('/monsters/import-json/bulk', { method: 'POST', body: JSON.stringify(payload) }),
     update: (id: number, data: Partial<Monster>) =>
       request<Monster>(`/monsters/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     remove: (id: number) =>

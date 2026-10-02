@@ -1,5 +1,9 @@
+from pydantic import ValidationError
+
 from app.models.monster import Monster
-from app.schemas.monster import MonsterCreate, MonsterUpdate
+from app.schemas.monster import BulkImportFailure, MonsterCreate, MonsterUpdate
+
+BULK_IMPORT_LIMIT = 500
 
 
 def normalize_monster_payload(raw: dict) -> dict:
@@ -21,6 +25,49 @@ async def create_monster_from_json(raw: dict) -> Monster:
     """Validate a pasted JSON statblock and store it as homebrew."""
     data = MonsterCreate(**normalize_monster_payload(raw))
     return await create_monster(data)
+
+
+def _unwrap_monster_list(raw) -> list:
+    """Accept a bare list, or an object wrapping one (`results` as in an Open5e
+    page, or `monsters`)."""
+    if isinstance(raw, list):
+        return raw
+    if isinstance(raw, dict):
+        for key in ("results", "monsters"):
+            if isinstance(raw.get(key), list):
+                return raw[key]
+    raise ValueError(
+        'JSON must be a list of statblocks, or an object with a "results" or "monsters" list.'
+    )
+
+
+def _format_validation_error(e: ValidationError) -> str:
+    return "; ".join(
+        f"{'.'.join(str(p) for p in err['loc']) or 'body'}: {err['msg']}"
+        for err in e.errors()
+    )
+
+
+async def create_monsters_from_json(raw) -> tuple[list[Monster], list[BulkImportFailure]]:
+    """Store many pasted statblocks as homebrew. Each item is validated on its
+    own: valid ones are saved, invalid ones are reported (not a 422 for all)."""
+    items = _unwrap_monster_list(raw)
+    if not items:
+        raise ValueError("The list is empty.")
+    if len(items) > BULK_IMPORT_LIMIT:
+        raise ValueError(f"Too many statblocks ({len(items)}); the limit is {BULK_IMPORT_LIMIT}.")
+
+    imported: list[Monster] = []
+    failed: list[BulkImportFailure] = []
+    for i, item in enumerate(items):
+        name = item.get("name") if isinstance(item, dict) else None
+        try:
+            imported.append(await create_monster_from_json(item))
+        except ValidationError as e:
+            failed.append(BulkImportFailure(index=i, name=name, error=_format_validation_error(e)))
+        except ValueError as e:
+            failed.append(BulkImportFailure(index=i, name=name, error=str(e)))
+    return imported, failed
 
 
 async def get_all_monsters(search: str | None = None) -> list[Monster]:

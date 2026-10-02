@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { api, type Monster, type Open5eBrowse, type Open5eSource } from '../api/client'
+import { api, type BulkMonsterImport, type Monster, type Open5eBrowse, type Open5eSource } from '../api/client'
 import MonsterDetail from './MonsterDetail'
 import MonsterEditor from './MonsterEditor'
+import { EXAMPLE_JSON, EXAMPLE_LIST_JSON, SchemaTable } from './StatblockSchema'
 
 export default function MonsterBrowser() {
   const [tab, setTab] = useState<'open5e' | 'library'>('open5e')
@@ -199,58 +200,49 @@ function Library() {
   )
 }
 
-const EXAMPLE_JSON = `{
-  "name": "Goblin Boss",
-  "size": "Small",
-  "type": "humanoid",
-  "alignment": "neutral evil",
-  "armor_class": 17,
-  "armor_desc": "chain shirt, shield",
-  "hit_points": 21,
-  "hit_dice": "6d6",
-  "speed": { "walk": 30 },
-  "strength": 10,
-  "dexterity": 14,
-  "constitution": 10,
-  "intelligence": 10,
-  "wisdom": 8,
-  "charisma": 10,
-  "challenge_rating": "1",
-  "cr": 1,
-  "senses": "darkvision 60 ft., passive Perception 9",
-  "languages": "Common, Goblin",
-  "traits": [
-    { "name": "Nimble Escape", "desc": "Disengages or Hides as a bonus action." }
-  ],
-  "actions": [
-    { "name": "Scimitar", "desc": "Melee: +4 to hit, 5 ft., one target. Hit: 5 (1d6 + 2) slashing." }
-  ],
-  "reactions": [
-    { "name": "Redirect Attack", "desc": "Swaps places with a nearby ally to take a hit." }
-  ],
-  "legendary_actions": []
-}`
+/** A list, or an object wrapping one (`results` as on an Open5e page, or `monsters`). */
+function isMonsterList(v: unknown): boolean {
+  if (Array.isArray(v)) return true
+  if (v && typeof v === 'object') {
+    const o = v as Record<string, unknown>
+    return Array.isArray(o.results) || Array.isArray(o.monsters)
+  }
+  return false
+}
 
 function PasteJson({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [showHelp, setShowHelp] = useState(false)
+  const [help, setHelp] = useState<'fields' | 'example' | null>(null)
+  const [result, setResult] = useState<BulkMonsterImport | null>(null)
 
   async function save() {
     setError(null)
+    setResult(null)
     let parsed: unknown
     try {
       parsed = JSON.parse(text)
     } catch {
-      setError('Invalid JSON — check for a stray comma or missing quote.')
+      setError('Invalid JSON. Check for a stray comma or a missing quote.')
       return
     }
     setBusy(true)
     try {
-      const m = await api.monsters.importJson(parsed)
-      onSaved()
-      alert(`Added "${m.name}" to your library.`)
+      if (isMonsterList(parsed)) {
+        const r = await api.monsters.importJsonBulk(parsed)
+        if (r.failed.length === 0) {
+          onSaved()
+          alert(`Added ${r.imported.length} monster${r.imported.length === 1 ? '' : 's'} to your library.`)
+        } else {
+          // keep the dialog open so the failures can be read and fixed
+          setResult(r)
+        }
+      } else {
+        const m = await api.monsters.importJson(parsed)
+        onSaved()
+        alert(`Added "${m.name}" to your library.`)
+      }
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -258,48 +250,85 @@ function PasteJson({ onClose, onSaved }: { onClose: () => void; onSaved: () => v
     }
   }
 
+  function applyExample(example: string) {
+    setText(example)
+    setHelp(null)
+  }
+
+  // after a partial import, closing must still refresh the library
+  const close = result && result.imported.length > 0 ? onSaved : onClose
+
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onClick={close}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <button className="modal-close" onClick={onClose}>✕</button>
+        <button className="modal-close" onClick={close}>✕</button>
         <h2>
-          Paste JSON statblock{' '}
+          Paste JSON statblocks{' '}
           <button
             className="ghost help-btn"
-            title="Show the expected JSON format"
-            aria-label="Show example JSON"
-            onClick={() => setShowHelp((s) => !s)}
+            title="Show the JSON format"
+            aria-label="Show the JSON format"
+            onClick={() => setHelp((h) => (h ? null : 'fields'))}
           >?</button>
         </h2>
         <p className="muted">
-          Paste a single monster as JSON — this app's own shape, or an Open5e statblock
-          (<code>special_abilities</code> is read as traits). It's saved as homebrew.
+          Paste one monster as a JSON object, or several as a list. Both this app's shape and
+          Open5e statblocks work, including a whole Open5e page (<code>{'{"results": [...]}'}</code>).
+          Up to 500 at once. They're saved as homebrew.
         </p>
-        {showHelp && (
+        {help && (
           <div className="json-help">
-            <p className="muted">
-              Only <code>name</code> is required; everything else falls back to a default.
-              <button className="link-strong" onClick={() => { setText(EXAMPLE_JSON); setShowHelp(false) }}>
-                Use this example
-              </button>
-            </p>
-            <pre className="json-example"><code>{EXAMPLE_JSON}</code></pre>
+            <div className="row">
+              <button className={help === 'fields' ? 'active' : ''} onClick={() => setHelp('fields')}>Fields</button>
+              <button className={help === 'example' ? 'active' : ''} onClick={() => setHelp('example')}>Examples</button>
+            </div>
+            {help === 'fields' ? (
+              <SchemaTable />
+            ) : (
+              <>
+                <p className="muted">
+                  One monster:
+                  <button className="link-strong" onClick={() => applyExample(EXAMPLE_JSON)}>Use this</button>
+                </p>
+                <pre className="json-example"><code>{EXAMPLE_JSON}</code></pre>
+                <p className="muted">
+                  Several monsters:
+                  <button className="link-strong" onClick={() => applyExample(EXAMPLE_LIST_JSON)}>Use this</button>
+                </p>
+                <pre className="json-example"><code>{EXAMPLE_LIST_JSON}</code></pre>
+              </>
+            )}
           </div>
         )}
         <textarea
           rows={16}
           spellCheck={false}
-          placeholder='{ "name": "Goblin Boss", "armor_class": 17, "hit_points": 21, ... }'
+          placeholder='{ "name": "Goblin Boss", ... }   or   [ { "name": "Goblin" }, { "name": "Wolf" } ]'
           value={text}
           onChange={(e) => setText(e.target.value)}
           style={{ width: '100%', fontFamily: 'monospace' }}
         />
         {error && <p className="error">{error}</p>}
+        {result && (
+          <div className="bulk-result">
+            <p>
+              Added <strong>{result.imported.length}</strong>, failed <strong>{result.failed.length}</strong>.
+              {result.imported.length > 0 && <> The added ones are already in your library.</>}
+            </p>
+            <ul>
+              {result.failed.map((f) => (
+                <li key={f.index}>
+                  <strong>#{f.index + 1}{f.name ? ` ${f.name}` : ''}</strong>: <span className="error">{f.error}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div className="row">
           <button className="run" disabled={busy || !text.trim()} onClick={save}>
             {busy ? 'Adding…' : 'Add to library'}
           </button>
-          <button className="ghost" onClick={onClose}>Cancel</button>
+          <button className="ghost" onClick={close}>{result ? 'Close' : 'Cancel'}</button>
         </div>
       </div>
     </div>

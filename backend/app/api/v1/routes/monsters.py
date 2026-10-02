@@ -1,7 +1,12 @@
 from fastapi import APIRouter, Body, HTTPException
 from pydantic import ValidationError
 
-from app.schemas.monster import MonsterCreate, MonsterOut, MonsterUpdate
+from app.schemas.monster import (
+    MonsterBulkImportResult,
+    MonsterCreate,
+    MonsterOut,
+    MonsterUpdate,
+)
 from app.services import monster as monster_service
 
 router = APIRouter()
@@ -34,6 +39,20 @@ async def import_monster_json(payload: dict = Body(...)):
         raise HTTPException(status_code=422, detail=e.errors())
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
+
+
+@router.post("/import-json/bulk", response_model=MonsterBulkImportResult)
+async def import_monsters_json_bulk(payload: list | dict = Body(...)):
+    """Add many homebrew monsters at once from a JSON list of statblocks (or an
+    object with a `results`/`monsters` list, e.g. a saved Open5e page).
+    Partial success: valid items are saved, invalid ones listed in `failed`."""
+    try:
+        imported, failed = await monster_service.create_monsters_from_json(payload)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    return MonsterBulkImportResult(
+        imported=[MonsterOut.model_validate(m) for m in imported], failed=failed
+    )
 
 
 @router.patch("/{monster_id}", response_model=MonsterOut)

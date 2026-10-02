@@ -628,6 +628,30 @@ button.conc-alert {
 }
 .json-help { margin: 8px 0; }
 .json-help .link-strong { margin-left: 8px; }
+.json-help .row { margin-bottom: 6px; }
+.schema-table-wrap {
+  max-height: 320px; overflow: auto;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.schema-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.schema-table th, .schema-table td {
+  text-align: left; vertical-align: top; padding: 5px 8px;
+  border-bottom: 1px solid var(--surface-3);
+}
+.schema-table th {
+  position: sticky; top: 0; background: var(--surface-2);
+  font-family: var(--display); font-size: 0.72rem; letter-spacing: 0.04em; color: var(--ink-dim);
+}
+.schema-table td:first-child { white-space: nowrap; }
+.schema-table code { font-size: 0.78rem; }
+.bulk-result {
+  margin: 10px 0; padding: 10px 12px; border-radius: var(--radius-sm);
+  background: var(--surface-2); border: 1px solid var(--border);
+}
+.bulk-result p { margin: 0 0 6px; }
+.bulk-result ul { margin: 0; padding-left: 18px; font-size: 0.86rem; }
+.bulk-result .error { margin: 0; display: inline; }
 .json-example {
   max-height: 260px; overflow: auto; margin: 6px 0 0;
   padding: 12px 14px; border-radius: var(--radius-sm);
@@ -739,12 +763,15 @@ button.conc-alert {
 .modal.editor input, .modal.editor select, .modal.editor textarea {
   font-family: var(--serif); font-weight: 400; font-size: 0.9rem;
   letter-spacing: 0; text-transform: none;
+  /* fill the grid cell; without this inputs keep their ~20ch natural width
+     and a row of them pushes past the modal edge */
+  width: 100%; min-width: 0;
 }
 .modal.editor textarea { resize: vertical; }
 
-.ed-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.ed-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .ed-grid .ed-wide { grid-column: span 2; }
-.ed-crhint { align-self: end; grid-column: span 3; font-weight: 400; text-transform: none; letter-spacing: 0; }
+.ed-crhint { align-self: end; padding-bottom: 8px; grid-column: span 1; font-weight: 400; text-transform: none; letter-spacing: 0; }
 
 .ed-fs {
   border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px 14px;
@@ -758,12 +785,12 @@ button.conc-alert {
 .ed-note { margin: 0; font-style: italic; font-weight: 400; text-transform: none; letter-spacing: 0; }
 .ed-block { display: flex; flex-direction: column; }
 
-.ed-speed { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-.ed-abilities { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.ed-speed { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.ed-abilities { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
 .ed-abilities label { text-align: center; align-items: center; }
 .ed-abilities input { text-align: center; }
 
-.ed-entry { display: grid; grid-template-columns: 1fr 2.2fr auto; gap: 8px; align-items: start; }
+.ed-entry { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr) auto; gap: 8px; align-items: start; }
 .ed-entry-del { align-self: start; padding: 6px 10px; }
 .ed-add {
   align-self: flex-start; background: transparent; border: 1px dashed var(--border-2);
@@ -852,11 +879,11 @@ button.conc-alert {
   .abilities { grid-template-columns: repeat(3, 1fr); }
   .modal { padding: 22px 18px; }
 
-  .ed-grid { grid-template-columns: repeat(2, 1fr); }
+  .ed-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ed-grid .ed-wide { grid-column: span 2; }
-  .ed-crhint { grid-column: span 2; }
-  .ed-speed { grid-template-columns: repeat(3, 1fr); }
-  .ed-abilities { grid-template-columns: repeat(3, 1fr); }
-  .ed-entry { grid-template-columns: 1fr auto; }
+  .ed-crhint { grid-column: span 1; }
+  .ed-speed { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ed-abilities { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ed-entry { grid-template-columns: minmax(0, 1fr) auto; }
   .ed-entry-desc { grid-column: 1 / -1; }
 }
