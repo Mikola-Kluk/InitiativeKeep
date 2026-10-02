@@ -18,6 +18,8 @@ Run encounters, track HP and conditions, and pull from 3200+ monster statblocks 
 - **🧠 Concentration** — flag a concentrating creature; when it takes damage the tracker shows the CON save DC (`max(10, dmg/2)`).
 - **⏳ Timed conditions** — give any condition a duration in rounds; it counts down at the end of each round and expires on its own (or leave it open-ended).
 - **👑 Legendary actions** — bosses get a clickable 3-orb pool that refills at the start of their turn; statblocks show reactions and legendary actions.
+- **🔥 Recharge abilities** — a monster's "Breath Weapon (Recharge 5–6)" shows as a chip; mark it used, and on the monster's next turn the app reminds you to roll your d6 and asks whether it recharged.
+- **✦ Concentration checks** — damage to a concentrating monster asks for a CON save with the right DC (one per hit); click Kept or Lost. Dropping to 0 HP ends concentration automatically.
 - **⚖️ Difficulty calculator** — set party size and level, get the encounter's XP total rated against the D&D 2024 Low/Moderate/High budgets live as you add monsters.
 - **🐺 Pack spawning** — add N copies of a monster at once; duplicates are auto-numbered (`Wolf (1)`, `Wolf (2)`, …).
 - **🧑‍🤝‍🧑 Party roster** — save your PCs (name, level) once and drop them into any encounter with one click; no HP or AC to enter for players — the DM never tracks player HP.
@@ -25,6 +27,7 @@ Run encounters, track HP and conditions, and pull from 3200+ monster statblocks 
 - **🐉 Monster library** — browse and filter [Open5e](https://open5e.com)'s 3200+ statblocks by CR, type, or source; import one at a time or in bulk.
 - **🛠️ Statblock creator** — build your own NPCs and bosses with a full editor: size/type/AC/HP/hit dice, speeds, six ability scores, CR, and repeatable traits, actions, reactions, and legendary actions. Edit them anytime; a homebrew boss with legendary actions spawns with the 3-orb pool automatically.
 - **📋 Paste JSON** — drop in one statblock or a whole list (this app's shape, an Open5e export, or a full Open5e page) and they land in your library as homebrew — no field-by-field typing. The **?** button shows every field with its type and default, plus examples.
+- **↶ Undo** — every combat change (damage, conditions, turn moves, start/end, adding or removing combatants) can be undone; the button names what it will revert, and Ctrl+Z works too.
 - **📜 Auto rolls** — on combat start, every combatant rolls initiative (`d20 + DEX`); NPCs also reroll HP from their hit dice.
 - **📖 Statblock detail** — dock a monster's full statblock (abilities, AC/HP/CR, speed, traits, actions) in a side panel while you keep editing HP and conditions.
 - **🕯️ Table-ready look** — dark parchment theme with Cinzel/EB Garamond typography: AC shields for monsters, level medals for players, a round seal on every encounter card.
@@ -128,6 +131,7 @@ Initiative order: highest `initiative` first, `dex_modifier` as tiebreak, unroll
 | `GET/POST/PATCH/DELETE` | `/api/v1/encounters` | Encounter CRUD |
 | `POST/PATCH/DELETE` | `/api/v1/encounters/{id}/combatants[/{cid}]` | Manage combatants |
 | `POST` | `/api/v1/encounters/{id}/start \| next-turn \| prev-turn` | Combat control |
+| `POST` | `/api/v1/encounters/{id}/undo` | Revert the last combat change |
 
 ## 🗺️ Roadmap
 

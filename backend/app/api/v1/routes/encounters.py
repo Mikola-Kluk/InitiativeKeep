@@ -103,3 +103,15 @@ async def prev_turn(encounter_id: int):
     if not result:
         raise HTTPException(status_code=404, detail="Encounter not found")
     return result
+
+
+@router.post("/{encounter_id}/undo", response_model=EncounterOut)
+async def undo(encounter_id: int):
+    """Revert the last change (HP, conditions, turn, start/end, add/remove combatant)."""
+    try:
+        result = await encounter_service.undo(encounter_id)
+    except LookupError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    if not result:
+        raise HTTPException(status_code=404, detail="Encounter not found")
+    return result

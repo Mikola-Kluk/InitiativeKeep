@@ -8,9 +8,8 @@ dialect the active connection uses, so it works on both SQLite (dev) and
 Postgres (prod).
 
 `safe=True` -> `CREATE TABLE IF NOT EXISTS`, so this is safe to run on every
-start. Note: it creates *missing* tables but does not ALTER existing ones to
-add new columns; on a schema change against a non-empty DB, handle that
-separately.
+start. It creates *missing* tables but does not ALTER existing ones, so fields
+added to a model later are listed in `app/schema_upgrade.py` and added here.
 """
 
 import asyncio
@@ -18,11 +17,14 @@ import asyncio
 from tortoise import Tortoise
 
 from app.config import settings
+from app.schema_upgrade import add_missing_columns
 
 
 async def main() -> None:
     await Tortoise.init(config=settings.TORTOISE_ORM)
     await Tortoise.generate_schemas(safe=True)
+    for col in await add_missing_columns(Tortoise.get_connection("default")):
+        print(f"init_db: added column {col}")
     await Tortoise.close_connections()
 
 

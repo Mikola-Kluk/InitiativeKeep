@@ -37,9 +37,10 @@ async def init_db():
 async def clean_db(init_db):
     yield
     from app.models.character import Character
-    from app.models.encounter import Combatant, Encounter
+    from app.models.encounter import Combatant, Encounter, EncounterSnapshot
     from app.models.monster import Monster
 
+    await EncounterSnapshot.all().delete()
     await Combatant.all().delete()
     await Encounter.all().delete()
     await Monster.all().delete()

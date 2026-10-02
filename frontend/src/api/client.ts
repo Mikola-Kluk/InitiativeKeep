@@ -66,6 +66,7 @@ export interface Combatant {
   concentrating: boolean
   legendary_actions_max: number
   legendary_actions_remaining: number
+  recharge_used: { name: string; round: number }[]  // spent recharge abilities
 }
 
 export interface Encounter {
@@ -75,6 +76,7 @@ export interface Encounter {
   round: number
   current_turn_index: number
   combatants: Combatant[]
+  undo_label: string | null  // what Undo would revert; null = nothing to undo
 }
 
 export interface Open5eRow {
@@ -199,5 +201,6 @@ export const api = {
     end: (id: number) => request<Encounter>(`/encounters/${id}/end`, { method: 'POST' }),
     nextTurn: (id: number) => request<Encounter>(`/encounters/${id}/next-turn`, { method: 'POST' }),
     prevTurn: (id: number) => request<Encounter>(`/encounters/${id}/prev-turn`, { method: 'POST' }),
+    undo: (id: number) => request<Encounter>(`/encounters/${id}/undo`, { method: 'POST' }),
   },
 }

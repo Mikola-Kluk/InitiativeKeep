@@ -29,6 +29,7 @@ class CombatantUpdate(BaseModel):
     conditions: list | None = None
     concentrating: bool | None = None
     legendary_actions_remaining: int | None = Field(default=None, ge=0)
+    recharge_used: list | None = None  # [{"name", "round"}]
 
 
 class CombatantOut(BaseModel):
@@ -47,6 +48,7 @@ class CombatantOut(BaseModel):
     concentrating: bool
     legendary_actions_max: int
     legendary_actions_remaining: int
+    recharge_used: list = []
 
     model_config = {"from_attributes": True}
 
@@ -70,5 +72,6 @@ class EncounterOut(BaseModel):
     round: int
     current_turn_index: int
     combatants: list[CombatantOut] = []
+    undo_label: str | None = None  # what Undo would revert; None = nothing to undo
 
     model_config = {"from_attributes": True}

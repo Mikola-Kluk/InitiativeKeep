@@ -76,6 +76,13 @@ calls live in services.
   `dex_modifier` = `(dexterity - 10) // 2` (property).
 - **Encounter** — one combat. `round` (starts 1), `current_turn_index` (index into the
   initiative-sorted combatant list; `-1` = combat not started).
+- **EncounterSnapshot** — undo history. Every combat mutation (add/update/remove
+  combatant, start/end, next/prev turn) first saves the whole encounter state
+  (round, turn index, all combatant rows) with a human label via `_snapshot` in
+  `services/encounter.py`; `undo` restores the latest one (re-creating removed
+  combatants under their old id) and deletes it. Capped at `UNDO_LIMIT` (50) per
+  encounter. `EncounterOut.undo_label` = what Undo would revert (null = nothing).
+  No-op PATCHes add no history.
 - **Character** — a saved PC (name, `max_hp`, `level`) in a reusable party roster
   (`services/character.py`, `/api/v1/characters`). Pick one to drop into an encounter
   as a PC combatant without re-typing; PCs carry a `level` that drives difficulty.
@@ -85,6 +92,13 @@ calls live in services.
   round in `next_turn`, legacy plain strings are normalized on read), and a legendary action
   pool (`legendary_actions_max/_remaining`, set to 3 when spawned from a monster that has
   `legendary_actions`; refills at the start of the creature's turn).
+  `recharge_used` (JSON `[{"name", "round"}]`) = spent recharge abilities; cleared by
+  `start_combat`. The app never rolls the d6 — the DM rolls physical dice. The frontend
+  parses "(Recharge 5–6)" / "(Recharge 6)" / "(Recharges after a … Rest)" from the linked
+  statblock's ability names (`rechargeAbilities` in `EncounterTracker.tsx`) and, on the
+  creature's turn from the round after use, asks "Roll d6 … Recharged / No".
+  Concentration checks are frontend-only: each hit on a concentrating monster queues a
+  CON save DC = min(30, max(10, dmg/2)) with Kept / Lost; 0 HP drops concentration.
   `CombatantCreate.count` (1–20) spawns N auto-numbered copies.
 
 Initiative order: highest `initiative` first, `dex_modifier` as tiebreak, unrolled (null) last.
@@ -119,6 +133,7 @@ name-sorted, which otherwise buries the obvious hit — see `_name_rank` in `ser
 - `GET/POST/PATCH/DELETE /api/v1/encounters`
 - `POST/PATCH/DELETE /api/v1/encounters/{id}/combatants[/{cid}]`
 - `POST /api/v1/encounters/{id}/start | next-turn | prev-turn` — combat control
+- `POST /api/v1/encounters/{id}/undo` — revert the last change; 409 if nothing to undo
 
 ## Frontend (React + Vite + TypeScript)
 
@@ -138,7 +153,8 @@ frontend/src/
 ├── components/
 │   ├── EncounterList.tsx      list/create/delete encounters (cards: round seal,
 │   │                          player/monster tags, started vs. not-started)
-│   ├── EncounterTracker.tsx   combat view: round + turn controls (start/next/prev/end),
+│   ├── EncounterTracker.tsx   combat view: round + turn controls (start/next/prev/end,
+│   │                          Undo button + Ctrl+Z outside text fields),
 │   │                          combatant rows (initiative, AC shield / PC level medal,
 │   │                          monster HP bar + dmg/heal, conditions; PC HP not tracked),
 │   │                          add combatant (from monster or PC),
@@ -172,8 +188,11 @@ Schema is bootstrapped from the models at container start by `backend/init_db.py
 (`Tortoise.generate_schemas(safe=True)` → `CREATE TABLE IF NOT EXISTS`), **not** aerich.
 The committed aerich migrations under `backend/migrations/` are SQLite-only SQL
 (they use `AUTOINCREMENT`, which Postgres rejects) and are not the deploy path.
-`generate_schemas` creates missing tables but does **not** ALTER existing ones — a
-schema change against a non-empty prod DB must be handled manually.
+`generate_schemas` creates missing tables but does **not** ALTER existing ones. So
+**a new column on an existing model must also be listed in `ADDED_COLUMNS` in
+`backend/app/schema_upgrade.py`** (SQLite + Postgres DDL); `init_db.py` adds it with
+`ALTER TABLE … ADD COLUMN` when missing, so it reaches Neon on the next deploy.
+New tables need nothing extra.
 
 ## Deployment (Render + Neon)
 

@@ -100,6 +100,25 @@ export default function EncounterTracker({
     return () => document.body.classList.remove('panel-open')
   }, [detailId])
 
+  const undoLabel = enc?.undo_label ?? null
+  const undo = useCallback(async () => {
+    try { setEnc(await api.encounters.undo(encounterId)) } catch (e) { setError((e as Error).message) }
+  }, [encounterId])
+
+  // Ctrl+Z / Cmd+Z undoes the last combat change — but not while typing in a
+  // field, where it should stay the browser's own text undo.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.key.toLowerCase() !== 'z') return
+      if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable]')) return
+      if (!undoLabel) return
+      e.preventDefault()
+      undo()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [undo, undoLabel])
+
   if (!enc) return <p className="muted">Loading… {error && <span className="error">{error}</span>}</p>
 
   const started = enc.current_turn_index >= 0
@@ -160,6 +179,14 @@ export default function EncounterTracker({
         ) : (
           <button className="run" onClick={() => ctrl(() => api.encounters.start(enc.id))}>⚔ Start fight</button>
         )}
+        <button
+          className="ghost undo-btn"
+          disabled={!undoLabel}
+          title={undoLabel ? `Undo: ${undoLabel} (Ctrl+Z)` : 'Nothing to undo'}
+          onClick={undo}
+        >
+          ↶ Undo{undoLabel && <span className="undo-label">{undoLabel}</span>}
+        </button>
       </div>
 
       {!started && <p className="muted prep-hint">Prep phase — add combatants, then “Start fight” rolls initiative for everyone.</p>}
@@ -173,6 +200,8 @@ export default function EncounterTracker({
           <CombatantRow
             key={c.id}
             c={c}
+            monster={c.monster_id !== null ? monsters.find((m) => m.id === c.monster_id) : undefined}
+            round={enc.round}
             active={c.id === activeId}
             onChange={setEnc}
             encounterId={enc.id}
@@ -259,10 +288,32 @@ function DifficultyPanel({ enc, monsters }: { enc: Encounter; monsters: Monster[
   )
 }
 
+type RechargeAbility = { name: string; min: number | null }  // min 5 = "Recharge 5–6"; null = per rest
+
+const RECHARGE_ROLL = /\(\s*recharge\s+(\d)(?:\s*[–—-]\s*6)?\s*\)/i
+const RECHARGE_REST = /\(\s*recharges?\s+after\s+a\s+(?:short\s+or\s+)?long\s+rest\s*\)/i
+
+/** Abilities marked "(Recharge 5–6)" / "(Recharge 6)" / "(Recharges after a Short or Long Rest)". */
+function rechargeAbilities(m?: Monster): RechargeAbility[] {
+  if (!m) return []
+  const out: RechargeAbility[] = []
+  for (const e of [...m.actions, ...m.reactions, ...m.legendary_actions, ...m.traits]) {
+    const roll = RECHARGE_ROLL.exec(e.name ?? '')
+    const rest = roll ? null : RECHARGE_REST.exec(e.name ?? '')
+    const hit = roll ?? rest
+    if (!hit) continue
+    const name = e.name.replace(hit[0], '').trim()
+    if (!out.some((a) => a.name === name)) out.push({ name, min: roll ? Number(roll[1]) : null })
+  }
+  return out
+}
+
 function CombatantRow({
-  c, active, encounterId, onChange, onError, onShowDetail,
+  c, monster, round, active, encounterId, onChange, onError, onShowDetail,
 }: {
   c: Combatant
+  monster?: Monster
+  round: number
   active: boolean
   encounterId: number
   onChange: (e: Encounter) => void
@@ -270,7 +321,11 @@ function CombatantRow({
   onShowDetail: (monsterId: number) => void
 }) {
   const [delta, setDelta] = useState('')
-  const [concDc, setConcDc] = useState<number | null>(null)
+  // one CON save per damage source, resolved in order
+  const [concDcs, setConcDcs] = useState<number[]>([])
+  // recharge prompts waved off ("didn't recharge"): ability name -> round
+  const [rollDismissed, setRollDismissed] = useState<Record<string, number>>({})
+  const recharges = rechargeAbilities(monster)
 
   async function patch(body: Partial<Combatant>) {
     try { onChange(await api.encounters.updateCombatant(encounterId, c.id, body)) }
@@ -284,9 +339,12 @@ function CombatantRow({
     if (sign < 0) {
       // damage eats temp HP first, remainder hits current HP
       const fromTemp = Math.min(c.temp_hp, n)
-      const rest = n - fromTemp
-      patch({ temp_hp: c.temp_hp - fromTemp, current_hp: Math.max(0, c.current_hp - rest) })
-      if (c.concentrating) setConcDc(Math.max(10, Math.floor(n / 2)))
+      const hp = Math.max(0, c.current_hp - (n - fromTemp))
+      // at 0 HP the creature is incapacitated, which ends concentration outright
+      const drop = c.concentrating && hp === 0
+      patch({ temp_hp: c.temp_hp - fromTemp, current_hp: hp, ...(drop ? { concentrating: false } : {}) })
+      if (drop) setConcDcs([])
+      else if (c.concentrating) setConcDcs((d) => [...d, Math.min(30, Math.max(10, Math.floor(n / 2)))])
     } else {
       patch({ current_hp: Math.min(c.max_hp, c.current_hp + n) })
     }
@@ -358,7 +416,7 @@ function CombatantRow({
           <button
             className={`tag conc ${c.concentrating ? 'on' : ''}`}
             title="Concentration — toggle; taking damage shows the CON save DC"
-            onClick={() => { setConcDc(null); patch({ concentrating: !c.concentrating }) }}
+            onClick={() => { setConcDcs([]); patch({ concentrating: !c.concentrating }) }}
           >
             ✦ conc
           </button>
@@ -379,10 +437,50 @@ function CombatantRow({
             ))}
           </span>
         )}
-        {concDc !== null && (
-          <button className="conc-alert" onClick={() => setConcDc(null)}>
-            ✦ Concentration check — CON save DC {concDc} ✕
-          </button>
+        {recharges.length > 0 && (
+          <span className="recharge">
+            {recharges.map((a) => {
+              const used = c.recharge_used.find((u) => u.name === a.name)
+              const range = a.min === null ? 'rest' : a.min === 6 ? '6' : `${a.min}–6`
+              const ready = () => patch({ recharge_used: c.recharge_used.filter((u) => u.name !== a.name) })
+              if (!used) {
+                return (
+                  <button key={a.name} className="rc-chip" title={`Ready (recharge ${range}) — click when used`}
+                    onClick={() => patch({ recharge_used: [...c.recharge_used, { name: a.name, round }] })}>
+                    {a.name} <small>{range}</small>
+                  </button>
+                )
+              }
+              // recharge roll: start of its own turn, from the round after it was spent
+              const rollNow = active && a.min !== null && round > used.round && rollDismissed[a.name] !== round
+              if (rollNow) {
+                return (
+                  <span key={a.name} className="rc-roll">
+                    <span>Roll d6 for <b>{a.name}</b>: {range}?</span>
+                    <button className="heal" onClick={ready}>Recharged</button>
+                    <button className="ghost" onClick={() => setRollDismissed((d) => ({ ...d, [a.name]: round }))}>No</button>
+                  </span>
+                )
+              }
+              return (
+                <button key={a.name} className="rc-chip used"
+                  title={a.min === null ? 'Used — back after a rest; click to mark ready' : 'Used — click to mark ready again'}
+                  onClick={ready}>
+                  {a.name} <small>used</small>
+                </button>
+              )
+            })}
+          </span>
+        )}
+        {c.concentrating && concDcs.length > 0 && (
+          <span className="conc-alert">
+            <span>
+              ✦ CON save DC <b>{concDcs[0]}</b>
+              {concDcs.length > 1 && <span className="muted"> (then {concDcs.slice(1).join(', ')})</span>}
+            </span>
+            <button className="heal" onClick={() => setConcDcs((d) => d.slice(1))}>Kept</button>
+            <button className="danger" onClick={() => { setConcDcs([]); patch({ concentrating: false }) }}>Lost</button>
+          </span>
         )}
       </div>
 
