@@ -15,6 +15,14 @@ ADDED_COLUMNS: list[tuple[str, str, dict[str, str]]] = [
         "sqlite": "JSON NOT NULL DEFAULT '[]'",
         "postgres": "JSONB NOT NULL DEFAULT '[]'::jsonb",
     }),
+    ("combatants", "wave", {
+        "sqlite": "INT NOT NULL DEFAULT 0",
+        "postgres": "INT NOT NULL DEFAULT 0",
+    }),
+    ("encounters", "current_wave", {
+        "sqlite": "INT NOT NULL DEFAULT 0",
+        "postgres": "INT NOT NULL DEFAULT 0",
+    }),
     ("combatants", "nick", {
         "sqlite": "VARCHAR(100)",
         "postgres": "VARCHAR(100)",

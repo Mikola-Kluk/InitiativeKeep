@@ -76,8 +76,20 @@ calls live in services.
   `dex_modifier` = `(dexterity - 10) // 2` (property).
 - **Encounter** — one combat. `round` (starts 1), `current_turn_index` (index into the
   initiative-sorted combatant list; `-1` = combat not started).
+- **Waves** — reinforcements. `Combatant.wave` (default 0) and `Encounter.current_wave`
+  (default 0): combatants with `wave <= current_wave` are fighting, the rest wait in
+  reserve. An encounter that never uses a wave above 0 behaves exactly as before.
+  `_sorted_combatants` returns the fighters in initiative order followed by the reserve
+  (by wave, then id) — `current_turn_index` only ever points into the first part, and
+  `next_turn`/`prev_turn` wrap on `_active_count`. `start_combat` resets `current_wave`
+  to 0 and rolls only wave 0; `start_next_wave` (`POST /{id}/next-wave`) moves to the
+  lowest waiting wave number (gaps allowed), rolls its initiative/HP via `_roll_in`, and
+  re-points `current_turn_index` at whoever was acting, since newcomers may sort above
+  them. It is snapshotted ("start wave N"), so Undo sends the wave back. A new combatant
+  with no `wave` joins `current_wave`. The frontend lists the reserve under "Wave N ·
+  waiting" headings and asks `confirm()` before starting a wave.
 - **EncounterSnapshot** — undo history. Every combat mutation (add/update/remove
-  combatant, start/end, next/prev turn) first saves the whole encounter state
+  combatant, start/end, next/prev turn, next wave) first saves the whole encounter state
   (round, turn index, all combatant rows) with a human label via `_snapshot` in
   `services/encounter.py`; `undo` restores the latest one (re-creating removed
   combatants under their old id) and deletes it. Capped at `UNDO_LIMIT` (50) per
@@ -141,7 +153,7 @@ name-sorted, which otherwise buries the obvious hit — see `_name_rank` in `ser
 - `POST /api/v1/open5e/import` — bulk import `{"slugs": [...]}` → `{imported, failed}`
 - `GET/POST/PATCH/DELETE /api/v1/encounters`
 - `POST /api/v1/encounters/prepare` — prep a fight in one call:
-  `{name, notes?, enemies: [{monster | monster_id, count 1–20, name?, nick?}]}` (max 50 entries)
+  `{name, notes?, enemies: [{monster | monster_id, count 1–20, name?, nick?, wave 0–50}]}` (max 50 entries)
   → 201 `EncounterOut`, combat not started, no undo history. `monster` = library name
   (case-insensitive exact match), exactly one of `monster` / `monster_id` (else 422).
   All-or-nothing: unknown monster → 404, nothing created. A name shared by identical copies
@@ -150,6 +162,8 @@ name-sorted, which otherwise buries the obvious hit — see `_name_rank` in `ser
   See `prepare_encounter` in `services/encounter.py`.
 - `POST/PATCH/DELETE /api/v1/encounters/{id}/combatants[/{cid}]`
 - `POST /api/v1/encounters/{id}/start | next-turn | prev-turn` — combat control
+- `POST /api/v1/encounters/{id}/next-wave` — bring the next waiting wave into the running
+  fight; 409 if combat has not started or no wave is waiting
 - `POST /api/v1/encounters/{id}/undo` — revert the last change; 409 if nothing to undo
 
 ## Frontend (React + Vite + TypeScript)
@@ -177,6 +191,8 @@ frontend/src/
 │   │                          Undo button + Ctrl+Z outside text fields),
 │   │                          combatant rows (initiative, AC shield / PC level medal,
 │   │                          click-to-edit nick beside monster names,
+│   │                          waves: reserve listed under "Wave N" headings, "Start wave N"
+│   │                          button (confirm) during combat, wave field in the add form,
 │   │                          monster HP bar + dmg/heal, conditions; PC HP not tracked),
 │   │                          add combatant (from monster or PC),
 │   │                          clicking a monster name docks its statblock in a side panel

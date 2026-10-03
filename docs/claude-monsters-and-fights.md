@@ -178,7 +178,9 @@ POST /encounters/prepare                → 201, the new encounter
     { "monster": "Goblin", "count": 4 },
     { "monster": "Bandit", "nick": "elf, carries the key" },
     { "monster": "Goblin Boss", "name": "Skarr" },
-    { "monster_id": 17, "count": 2 }
+    { "monster_id": 17, "count": 2 },
+    { "monster": "Wolf", "count": 3, "wave": 1 },
+    { "monster": "Ogre", "wave": 2 }
   ]
 }
 ```
@@ -192,6 +194,7 @@ POST /encounters/prepare                → 201, the new encounter
 | `enemies[].monster_id` | integer | one of the two | Library id; use it when two statblocks share a name |
 | `enemies[].count` | integer 1–20 | 1 | Copies; they are numbered automatically: "Goblin (1)", "Goblin (2)", … |
 | `enemies[].name` | string | — | Display name replacing the statblock name (for a named NPC) |
+| `enemies[].wave` | integer 0–50 | 0 | When the creature arrives. 0 = in the fight from the start; 1, 2, … = reinforcements that wait in reserve until the DM starts that wave. |
 | `enemies[].nick` | string ≤ 100 | — | Short tag shown beside the name ("elf", "archer", "Skarr"); the name itself stays. Applied to every copy of the entry. |
 
 Each enemy needs exactly one of `monster` / `monster_id`. Don't number copies yourself —
@@ -202,6 +205,13 @@ Boss"); use `nick` to tell otherwise identical creatures apart while keeping the
 name ("Bandit" + nick "elf"). To give copies different nicks, write one entry per copy
 instead of `count`. A nick can also be changed later:
 `PATCH /encounters/<id>/combatants/<cid>` with `{"nick": "elf"}` (`""` or `null` removes it).
+
+**Waves.** Use them when the user describes reinforcements, an ambush in stages, or
+"then X arrives". Everything the party faces at the start is wave 0 (just omit `wave`).
+Number later groups 1, 2, 3 in the order they arrive. Don't use waves to split up a
+single group for no reason — an ordinary fight has only wave 0. Put the trigger for each
+wave in `notes` ("wave 1 when the gate falls or at round 3"), since the app does not
+start waves on its own.
 
 The request is all-or-nothing:
 
@@ -221,8 +231,19 @@ If asked to add a player through the API anyway:
 POST /encounters/<id>/combatants        body: {"name": "Aria", "is_pc": true, "level": 5}
 ```
 
-Do not call `/encounters/<id>/start`, `next-turn`, or change HP unless the user asks —
-running the combat is the DM's job.
+A monster can also be added to a wave afterwards:
+
+```
+POST /encounters/<id>/combatants        body: {"monster_id": 12, "count": 2, "wave": 1}
+```
+
+Without `wave` it joins the wave that is currently fighting.
+
+Do not call `/encounters/<id>/start`, `next-turn`, `next-wave`, or change HP unless the
+user asks — running the combat is the DM's job. `POST /encounters/<id>/next-wave` brings
+the next waiting wave into a running fight (409 if the fight has not started or no wave
+is waiting); in the app the DM is asked to confirm first, so only call it on an explicit
+request.
 
 ## Typical flow
 

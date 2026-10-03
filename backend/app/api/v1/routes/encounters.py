@@ -104,6 +104,19 @@ async def end_combat(encounter_id: int):
     return result
 
 
+@router.post("/{encounter_id}/next-wave", response_model=EncounterOut)
+async def start_next_wave(encounter_id: int):
+    """Bring the next waiting wave into the running fight (rolls its initiative and HP).
+    409 if combat has not started or no wave is waiting."""
+    try:
+        result = await encounter_service.start_next_wave(encounter_id)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    if not result:
+        raise HTTPException(status_code=404, detail="Encounter not found")
+    return result
+
+
 @router.post("/{encounter_id}/next-turn", response_model=EncounterOut)
 async def next_turn(encounter_id: int):
     result = await encounter_service.next_turn(encounter_id)

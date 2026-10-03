@@ -55,6 +55,7 @@ export interface Combatant {
   monster_id: number | null
   name: string
   nick: string | null  // DM's tag beside the name ("elf", "Skarr")
+  wave: number  // 0 = in the fight from the start; above Encounter.current_wave = in reserve
   is_pc: boolean
   level: number | null
   initiative: number | null
@@ -76,6 +77,8 @@ export interface Encounter {
   notes: string | null
   round: number
   current_turn_index: number
+  current_wave: number  // waves up to this one are fighting
+  // in-fight combatants first (initiative order; current_turn_index points here), then the reserve by wave
   combatants: Combatant[]
   undo_label: string | null  // what Undo would revert; null = nothing to undo
 }
@@ -189,7 +192,7 @@ export const api = {
       request<Encounter>('/encounters/prepare', { method: 'POST', body: JSON.stringify(payload) }),
     remove: (id: number) =>
       request<void>(`/encounters/${id}`, { method: 'DELETE' }),
-    addCombatant: (id: number, body: Partial<Combatant> & { monster_id?: number; count?: number; level?: number }) =>
+    addCombatant: (id: number, body: Partial<Combatant> & { monster_id?: number; count?: number; level?: number; wave?: number }) =>
       request<Encounter>(`/encounters/${id}/combatants`, {
         method: 'POST',
         body: JSON.stringify(body),
@@ -203,6 +206,7 @@ export const api = {
       request<Encounter>(`/encounters/${id}/combatants/${cid}`, { method: 'DELETE' }),
     start: (id: number) => request<Encounter>(`/encounters/${id}/start`, { method: 'POST' }),
     end: (id: number) => request<Encounter>(`/encounters/${id}/end`, { method: 'POST' }),
+    nextWave: (id: number) => request<Encounter>(`/encounters/${id}/next-wave`, { method: 'POST' }),
     nextTurn: (id: number) => request<Encounter>(`/encounters/${id}/next-turn`, { method: 'POST' }),
     prevTurn: (id: number) => request<Encounter>(`/encounters/${id}/prev-turn`, { method: 'POST' }),
     undo: (id: number) => request<Encounter>(`/encounters/${id}/undo`, { method: 'POST' }),

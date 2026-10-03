@@ -186,7 +186,7 @@ function PrepareJson({ onClose, onSaved }: { onClose: () => void; onSaved: (enc:
             {help === 'example' && (
               <>
                 <p className="muted">
-                  Three of one monster, one more with a nick, and a renamed one:
+                  Three of one monster and a nicked one from the start, reinforcements in wave 1, a renamed boss in wave 2:
                   <button className="link-strong" onClick={() => { setText(example); setHelp(null) }}>Use this</button>
                 </p>
                 <pre className="json-example"><code>{example}</code></pre>

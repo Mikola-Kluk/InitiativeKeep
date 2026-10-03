@@ -26,8 +26,9 @@ Run encounters, track HP and conditions, and pull from 3200+ monster statblocks 
 - **⚖️ Smarter difficulty** — the budget is taken from your PCs' levels automatically, and monster XP is scaled by an encounter multiplier so packs read as harder than raw XP.
 - **🐉 Monster library** — browse and filter [Open5e](https://open5e.com)'s 3200+ statblocks by CR, type, or source; import one at a time or in bulk.
 - **🛠️ Statblock creator** — build your own NPCs and bosses with a full editor: size/type/AC/HP/hit dice, speeds, six ability scores, CR, and repeatable traits, actions, reactions, and legendary actions. Edit them anytime; a homebrew boss with legendary actions spawns with the 3-orb pool automatically.
+- **⚑ Waves** — plan reinforcements ahead: give a monster a wave number when adding it and it waits in reserve under its own "Wave N" heading. During the fight, **Start wave N** (asks first) rolls the newcomers' initiative and HP and slots them into the order without moving the current turn. Undo sends them back. Fights without waves look exactly as before.
 - **🏷️ Nicks** — tag any monster in the tracker with a short note beside its name ("elf", "Skarr", "the archer") to tell four bandits apart; click to add or edit, undoable like everything else.
-- **📋 Prepare a fight from JSON** — on the Encounters page, paste `{ "name", "notes", "enemies": [{ "monster", "count", "name", "nick" }] }` to create an encounter already stocked with enemies, picked from your library by name (or `monster_id`); add the players afterwards. The **?** button lists every field, your library's monsters, and a ready-to-use example.
+- **📋 Prepare a fight from JSON** — on the Encounters page, paste `{ "name", "notes", "enemies": [{ "monster", "count", "name", "nick", "wave" }] }` to create an encounter already stocked with enemies, picked from your library by name (or `monster_id`); add the players afterwards. The **?** button lists every field, your library's monsters, and a ready-to-use example.
 - **📋 Paste JSON** — drop in one statblock or a whole list (this app's shape, an Open5e export, or a full Open5e page) and they land in your library as homebrew — no field-by-field typing. A statblock you already have is skipped, so pasting twice never leaves copies. The **?** button shows every field with its type and default, plus examples.
 - **↶ Undo** — every combat change (damage, conditions, turn moves, start/end, adding or removing combatants) can be undone; the button names what it will revert, and Ctrl+Z works too.
 - **📜 Auto rolls** — on combat start, every combatant rolls initiative (`d20 + DEX`); NPCs also reroll HP from their hit dice.
@@ -135,6 +136,7 @@ Initiative order: highest `initiative` first, `dex_modifier` as tiebreak, unroll
 | `POST` | `/api/v1/encounters/prepare` | Create an encounter with its enemies in one call (add PCs later) |
 | `POST/PATCH/DELETE` | `/api/v1/encounters/{id}/combatants[/{cid}]` | Manage combatants |
 | `POST` | `/api/v1/encounters/{id}/start \| next-turn \| prev-turn` | Combat control |
+| `POST` | `/api/v1/encounters/{id}/next-wave` | Bring the next waiting wave into the fight |
 | `POST` | `/api/v1/encounters/{id}/undo` | Revert the last combat change |
 
 ## 🗺️ Roadmap

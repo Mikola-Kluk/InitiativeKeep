@@ -82,12 +82,24 @@ def _initiative_key(c: Combatant) -> tuple:
     return (rolled, c.initiative or 0, c.dex_modifier)
 
 
-async def _sorted_combatants(encounter_id: int) -> list[Combatant]:
-    combatants = await Combatant.filter(encounter_id=encounter_id)
+async def _sorted_combatants(encounter: Encounter) -> list[Combatant]:
+    """Everyone in the fight in initiative order, then the reserve (waves not yet
+    started) by wave. Turn indexes only ever point into the first part."""
+    combatants = await Combatant.filter(encounter_id=encounter.id)
     for c in combatants:
         c.conditions = _normalize_conditions(c.conditions)
-    combatants.sort(key=_initiative_key, reverse=True)
-    return combatants
+    active = [c for c in combatants if c.wave <= encounter.current_wave]
+    reserve = [c for c in combatants if c.wave > encounter.current_wave]
+    active.sort(key=_initiative_key, reverse=True)
+    reserve.sort(key=lambda c: (c.wave, c.id))
+    return active + reserve
+
+
+async def _active_count(encounter: Encounter) -> int:
+    """Combatants taking turns: the reserve is left out."""
+    return await Combatant.filter(
+        encounter_id=encounter.id, wave__lte=encounter.current_wave
+    ).count()
 
 
 async def _load(encounter_id: int) -> Encounter | None:
@@ -95,7 +107,7 @@ async def _load(encounter_id: int) -> Encounter | None:
     if not encounter:
         return None
     # attach sorted combatants for serialization
-    encounter.combatants_ordered = await _sorted_combatants(encounter_id)  # type: ignore[attr-defined]
+    encounter.combatants_ordered = await _sorted_combatants(encounter)  # type: ignore[attr-defined]
     return encounter
 
 
@@ -105,7 +117,7 @@ UNDO_LIMIT = 50  # snapshots kept per encounter
 
 # combatant columns captured in a snapshot and written back on undo
 _SNAPSHOT_FIELDS = (
-    "id", "monster_id", "name", "nick", "is_pc", "level", "initiative", "dex_modifier",
+    "id", "monster_id", "name", "nick", "wave", "is_pc", "level", "initiative", "dex_modifier",
     "armor_class", "max_hp", "current_hp", "temp_hp", "conditions", "concentrating",
     "legendary_actions_max", "legendary_actions_remaining", "recharge_used",
 )
@@ -117,6 +129,7 @@ async def _snapshot(encounter: Encounter, label: str) -> None:
     state = {
         "round": encounter.round,
         "current_turn_index": encounter.current_turn_index,
+        "current_wave": encounter.current_wave,
         "combatants": [{f: getattr(c, f) for f in _SNAPSHOT_FIELDS} for c in combatants],
     }
     await EncounterSnapshot.create(encounter_id=encounter.id, label=label[:255], state=state)
@@ -158,6 +171,8 @@ def _describe_update(c: Combatant, changes: dict) -> str:
             parts.append(f"legendary {old} → {new}")
         elif key == "initiative":
             parts.append(f"initiative {old} → {new}")
+        elif key == "wave":
+            parts.append(f"wave {old} → {new}")
         elif key == "nick":
             parts.append(f'nick "{new}"' if new else "nick removed")
         elif key == "recharge_used":
@@ -205,7 +220,9 @@ async def undo(encounter_id: int) -> dict | None:
                 await Combatant.create(id=cid, encounter_id=encounter_id, **data)
         encounter.round = state["round"]
         encounter.current_turn_index = state["current_turn_index"]
-        await encounter.save(update_fields=["round", "current_turn_index"])
+        # snapshots from before waves existed carry no wave
+        encounter.current_wave = state.get("current_wave", encounter.current_wave)
+        await encounter.save(update_fields=["round", "current_turn_index", "current_wave"])
         await snap.delete()
     return await get_encounter(encounter_id)
 
@@ -217,6 +234,7 @@ def _serialize(encounter: Encounter) -> dict:
         "notes": encounter.notes,
         "round": encounter.round,
         "current_turn_index": encounter.current_turn_index,
+        "current_wave": encounter.current_wave,
         "combatants": getattr(encounter, "combatants_ordered", []),
         "undo_label": getattr(encounter, "undo_label", None),
     }
@@ -228,7 +246,7 @@ async def get_all_encounters() -> list[dict]:
     encounters = await Encounter.all().order_by("-created_at")
     result = []
     for enc in encounters:
-        enc.combatants_ordered = await _sorted_combatants(enc.id)  # type: ignore[attr-defined]
+        enc.combatants_ordered = await _sorted_combatants(enc)  # type: ignore[attr-defined]
         result.append(_serialize(enc))
     return result
 
@@ -295,6 +313,7 @@ async def prepare_encounter(data: EncounterPrepare) -> dict:
             fields = _monster_fields(monster)
             fields["encounter_id"] = encounter.id
             fields["nick"] = _clean_nick(enemy.nick)
+            fields["wave"] = enemy.wave
             base = _base_name(enemy.name or monster.name)
             for _ in range(enemy.count):
                 fields["name"] = await _dedupe_name(encounter.id, base)
@@ -346,6 +365,8 @@ async def add_combatant(encounter_id: int, data: CombatantCreate) -> dict | None
         "encounter_id": encounter_id,
         "name": data.name,
         "nick": _clean_nick(data.nick),
+        # no wave given: joins whoever is fighting now
+        "wave": data.wave if data.wave is not None else encounter.current_wave,
         "is_pc": data.is_pc,
         "level": data.level,
         "initiative": data.initiative,
@@ -391,6 +412,8 @@ async def update_combatant(
         update_data["recharge_used"] = _normalize_recharge(update_data["recharge_used"])
     if "nick" in update_data:
         update_data["nick"] = _clean_nick(update_data["nick"])
+    if update_data.get("wave", 0) is None:
+        del update_data["wave"]  # a combatant is always in some wave
     # only real changes go into the undo history
     update_data = {k: v for k, v in update_data.items() if getattr(combatant, k) != v}
     if update_data:
@@ -428,9 +451,9 @@ async def _tick_condition_durations(encounter_id: int) -> None:
             await c.save(update_fields=["conditions"])
 
 
-async def _refill_legendary(encounter_id: int, turn_index: int) -> None:
+async def _refill_legendary(encounter: Encounter, turn_index: int) -> None:
     """Legendary action pool refills at the start of the creature's own turn."""
-    combatants = await _sorted_combatants(encounter_id)
+    combatants = await _sorted_combatants(encounter)
     if 0 <= turn_index < len(combatants):
         c = combatants[turn_index]
         if c.legendary_actions_max and c.legendary_actions_remaining != c.legendary_actions_max:
@@ -438,21 +461,14 @@ async def _refill_legendary(encounter_id: int, turn_index: int) -> None:
             await c.save(update_fields=["legendary_actions_remaining"])
 
 
-async def start_combat(encounter_id: int) -> dict | None:
-    """Begin combat: roll initiative for anyone who hasn't got one, reroll monster
-    HP, order by initiative, start at the top.
+async def _roll_in(combatants: list[Combatant]) -> None:
+    """Make combatants ready to fight (`monster` must be prefetched).
 
     - Only combatants with no initiative yet get rolled (d20 + dex_modifier);
       a value entered during prep is kept.
     - From a statblock (monster_id set) with hit_dice: HP rolled from hit_dice
     PCs keep their entered HP.
     """
-    encounter = await Encounter.get_or_none(id=encounter_id)
-    if not encounter:
-        return None
-
-    await _snapshot(encounter, "start fight")
-    combatants = await Combatant.filter(encounter_id=encounter_id).prefetch_related("monster")
     for c in combatants:
         changed: list[str] = []
         if c.initiative is None:
@@ -473,9 +489,56 @@ async def start_combat(encounter_id: int) -> dict | None:
         if changed:
             await c.save(update_fields=changed)
 
+
+async def start_combat(encounter_id: int) -> dict | None:
+    """Begin combat with wave 0: roll initiative for anyone who hasn't got one,
+    reroll monster HP (see `_roll_in`), order by initiative, start at the top.
+    Later waves stay in reserve, untouched, until `start_next_wave`."""
+    encounter = await Encounter.get_or_none(id=encounter_id)
+    if not encounter:
+        return None
+
+    await _snapshot(encounter, "start fight")
+    combatants = await Combatant.filter(encounter_id=encounter_id, wave=0).prefetch_related("monster")
+    await _roll_in(combatants)
+
     encounter.round = 1
+    encounter.current_wave = 0
     encounter.current_turn_index = 0 if combatants else -1
-    await encounter.save(update_fields=["round", "current_turn_index"])
+    await encounter.save(update_fields=["round", "current_turn_index", "current_wave"])
+    return await get_encounter(encounter_id)
+
+
+async def start_next_wave(encounter_id: int) -> dict | None:
+    """Bring the next waiting wave into the running fight: its combatants roll
+    initiative and HP (see `_roll_in`) and slot into the order. The turn stays
+    with whoever has it. Raises ValueError if combat is not running or no wave
+    is waiting."""
+    encounter = await Encounter.get_or_none(id=encounter_id)
+    if not encounter:
+        return None
+    if encounter.current_turn_index < 0:
+        raise ValueError("Start the fight before bringing in a wave.")
+    waiting = await (
+        Combatant.filter(encounter_id=encounter_id, wave__gt=encounter.current_wave)
+        .order_by("wave").values_list("wave", flat=True)
+    )
+    if not waiting:
+        raise ValueError("No further wave to start.")
+    wave = waiting[0]  # numbering may have gaps
+
+    order = await _sorted_combatants(encounter)
+    acting = order[encounter.current_turn_index]
+
+    await _snapshot(encounter, f"start wave {wave}")
+    joining = await Combatant.filter(encounter_id=encounter_id, wave=wave).prefetch_related("monster")
+    await _roll_in(joining)
+
+    encounter.current_wave = wave
+    # newcomers with a higher initiative land above the acting combatant
+    order = await _sorted_combatants(encounter)
+    encounter.current_turn_index = next(i for i, c in enumerate(order) if c.id == acting.id)
+    await encounter.save(update_fields=["current_turn_index", "current_wave"])
     return await get_encounter(encounter_id)
 
 
@@ -498,7 +561,7 @@ async def next_turn(encounter_id: int) -> dict | None:
     encounter = await Encounter.get_or_none(id=encounter_id)
     if not encounter:
         return None
-    count = await Combatant.filter(encounter_id=encounter_id).count()
+    count = await _active_count(encounter)
     if count == 0:
         return await get_encounter(encounter_id)
     await _snapshot(encounter, f"next turn (round {encounter.round})")
@@ -512,7 +575,7 @@ async def next_turn(encounter_id: int) -> dict | None:
             encounter.round += 1
             await _tick_condition_durations(encounter_id)
     await encounter.save(update_fields=["round", "current_turn_index"])
-    await _refill_legendary(encounter_id, encounter.current_turn_index)
+    await _refill_legendary(encounter, encounter.current_turn_index)
     return await get_encounter(encounter_id)
 
 
@@ -520,7 +583,7 @@ async def prev_turn(encounter_id: int) -> dict | None:
     encounter = await Encounter.get_or_none(id=encounter_id)
     if not encounter:
         return None
-    count = await Combatant.filter(encounter_id=encounter_id).count()
+    count = await _active_count(encounter)
     if count == 0:
         return await get_encounter(encounter_id)
     await _snapshot(encounter, f"previous turn (round {encounter.round})")

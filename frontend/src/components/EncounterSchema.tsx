@@ -14,6 +14,7 @@ export const ENCOUNTER_FIELDS: FieldDoc[] = [
   ['enemies[].monster_id', 'integer', 'one of the two', 'Its id instead of the name. Needed when two different statblocks share a name.'],
   ['enemies[].count', 'integer 1–20', '1', 'Copies to spawn, numbered automatically: Goblin (1), Goblin (2), …'],
   ['enemies[].name', 'string', '—', 'Replaces the statblock name for this entry.'],
+  ['enemies[].wave', 'integer 0–50', '0', '0 = in the fight from the start. Higher waves wait until you press "Start wave" during the fight.'],
   ['enemies[].nick', 'string ≤ 100', '—', 'Tag shown beside the name, e.g. "elf". Goes on every copy; editable in the tracker.'],
 ]
 
@@ -23,7 +24,8 @@ export function exampleEncounterJson(monsters: Monster[]): string {
   const enemies = [
     `    { "monster": ${JSON.stringify(a?.name ?? 'Goblin')}, "count": 3 }`,
     `    { "monster": ${JSON.stringify(a?.name ?? 'Goblin')}, "nick": "elf, has the key" }`,
-    `    { "monster": ${JSON.stringify(b?.name ?? a?.name ?? 'Young Red Dragon')}, "name": "Old Smoky" }`,
+    `    { "monster": ${JSON.stringify(a?.name ?? 'Goblin')}, "count": 2, "wave": 1 }`,
+    `    { "monster": ${JSON.stringify(b?.name ?? a?.name ?? 'Young Red Dragon')}, "name": "Old Smoky", "wave": 2 }`,
   ]
   return `{
   "name": "Ambush at the ford",

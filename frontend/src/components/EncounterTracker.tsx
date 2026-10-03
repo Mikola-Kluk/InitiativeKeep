@@ -124,6 +124,37 @@ export default function EncounterTracker({
   const started = enc.current_turn_index >= 0
   const activeId = started ? enc.combatants[enc.current_turn_index]?.id : undefined
 
+  // waves: whoever is at or below the current wave fights, the rest wait in reserve
+  const fighting = enc.combatants.filter((c) => c.wave <= enc.current_wave)
+  const reserve = enc.combatants.filter((c) => c.wave > enc.current_wave)
+  const waitingWaves = [...new Set(reserve.map((c) => c.wave))].sort((a, b) => a - b)
+  const nextWave = waitingWaves[0]
+  const hasWaves = enc.current_wave > 0 || reserve.length > 0
+
+  function startNextWave() {
+    const n = reserve.filter((c) => c.wave === nextWave).length
+    const who = `${n} combatant${n === 1 ? '' : 's'}`
+    if (!confirm(`Start wave ${nextWave}? ${who} will roll initiative and join the fight.`)) return
+    ctrl(() => api.encounters.nextWave(enc!.id))
+  }
+
+  const row = (c: Combatant, inReserve: boolean) => (
+    <CombatantRow
+      key={c.id}
+      c={c}
+      monster={c.monster_id !== null ? monsters.find((m) => m.id === c.monster_id) : undefined}
+      round={enc.round}
+      active={c.id === activeId}
+      reserve={inReserve}
+      // moving between waves is safe while the turn order does not depend on it
+      waveEdit={hasWaves && (inReserve || !started) ? enc.current_wave : null}
+      onChange={setEnc}
+      encounterId={enc.id}
+      onError={setError}
+      onShowDetail={setDetailId}
+    />
+  )
+
   async function ctrl(fn: () => Promise<Encounter>) {
     try { setEnc(await fn()) } catch (e) { setError((e as Error).message) }
   }
@@ -139,6 +170,7 @@ export default function EncounterTracker({
       <div className="row spread">
         <button className="link" onClick={onBack}>← Back</button>
         <h2>{enc.name}</h2>
+        {hasWaves && started && <span className="tag wave-now" title="Wave currently fighting">Wave {enc.current_wave}</span>}
         <span className="round-badge" title={`Round ${enc.round}`}>
           <small>Round</small>
           <b>{enc.round}</b>
@@ -175,6 +207,11 @@ export default function EncounterTracker({
             >
               ⏹ End
             </button>
+            {nextWave !== undefined && (
+              <button title="Bring the next waiting wave into the fight" onClick={startNextWave}>
+                ⚑ Start wave {nextWave}
+              </button>
+            )}
           </>
         ) : (
           <button className="run" onClick={() => ctrl(() => api.encounters.start(enc.id))}>⚔ Start fight</button>
@@ -195,23 +232,22 @@ export default function EncounterTracker({
 
       {enc.combatants.length === 0 && <p className="muted">No combatants — add some below.</p>}
 
-      <ul className="tracker">
-        {enc.combatants.map((c) => (
-          <CombatantRow
-            key={c.id}
-            c={c}
-            monster={c.monster_id !== null ? monsters.find((m) => m.id === c.monster_id) : undefined}
-            round={enc.round}
-            active={c.id === activeId}
-            onChange={setEnc}
-            encounterId={enc.id}
-            onError={setError}
-            onShowDetail={setDetailId}
-          />
-        ))}
-      </ul>
+      <ul className="tracker">{fighting.map((c) => row(c, false))}</ul>
 
-      <AddCombatant encounterId={enc.id} monsters={monsters} onAdded={setEnc} onError={setError} />
+      {waitingWaves.map((w) => {
+        const members = reserve.filter((c) => c.wave === w)
+        return (
+          <section key={w} className="wave">
+            <h3 className="wave-head">
+              Wave {w}
+              <span className="muted"> · waiting · {members.length} combatant{members.length === 1 ? '' : 's'}</span>
+            </h3>
+            <ul className="tracker">{members.map((c) => row(c, true))}</ul>
+          </section>
+        )
+      })}
+
+      <AddCombatant encounterId={enc.id} currentWave={enc.current_wave} monsters={monsters} onAdded={setEnc} onError={setError} />
 
       {detailId !== null && <MonsterDetail monsterId={detailId} variant="panel" onClose={() => setDetailId(null)} />}
     </section>
@@ -350,13 +386,15 @@ function rechargeAbilities(m?: Monster): RechargeAbility[] {
 }
 
 function CombatantRow({
-  c, monster, round, active, encounterId, onChange, onError, onShowDetail,
+  c, monster, round, active, encounterId, reserve = false, waveEdit = null, onChange, onError, onShowDetail,
 }: {
   c: Combatant
   monster?: Monster
   round: number
   active: boolean
   encounterId: number
+  reserve?: boolean          // waiting in a later wave
+  waveEdit?: number | null   // lowest wave it may be moved to; null = wave not editable
   onChange: (e: Encounter) => void
   onError: (m: string) => void
   onShowDetail: (monsterId: number) => void
@@ -414,7 +452,7 @@ function CombatantRow({
 
   return (
     // PCs never carry HP here, so `down` must not grey every player out
-    <li className={`combatant ${c.is_pc ? 'is-pc' : ''} ${active ? 'active' : ''} ${!c.is_pc && c.current_hp === 0 ? 'down' : ''}`}>
+    <li className={`combatant ${c.is_pc ? 'is-pc' : ''} ${active ? 'active' : ''} ${reserve ? 'reserve' : ''} ${!c.is_pc && c.current_hp === 0 ? 'down' : ''}`}>
       <div className="init">
         <input
           className="init-input"
@@ -455,6 +493,19 @@ function CombatantRow({
           {c.is_pc
             ? <span className="tag pc">Player</span>
             : <span className="tag npc">NPC</span>}
+          {waveEdit != null && (
+            <label className="tag wave-pick" title="Wave this combatant arrives in (0 = there from the start)">
+              wave
+              <input
+                type="number" min={waveEdit} max={50} value={c.wave}
+                aria-label={`Wave for ${c.name}`}
+                onChange={(e) => {
+                  const w = Number(e.target.value)
+                  if (e.target.value !== '' && Number.isInteger(w) && w >= waveEdit && w <= 50) patch({ wave: w })
+                }}
+              />
+            </label>
+          )}
           <button
             className={`tag conc ${c.concentrating ? 'on' : ''}`}
             title="Concentration — toggle; taking damage shows the CON save DC"
@@ -646,9 +697,10 @@ function ConditionMenu({
 }
 
 function AddCombatant({
-  encounterId, monsters, onAdded, onError,
+  encounterId, currentWave, monsters, onAdded, onError,
 }: {
   encounterId: number
+  currentWave: number
   monsters: Monster[]
   onAdded: (e: Encounter) => void
   onError: (m: string) => void
@@ -659,6 +711,7 @@ function AddCombatant({
   const [init, setInit] = useState('')
   const [monsterId, setMonsterId] = useState<number | ''>('')
   const [count, setCount] = useState('1')
+  const [wave, setWave] = useState('')  // empty = the wave fighting now
   const [saveToParty, setSaveToParty] = useState(true)
   const [party, setParty] = useState<Character[]>([])
 
@@ -685,7 +738,8 @@ function AddCombatant({
       if (mode === 'monster') {
         if (monsterId === '') return
         const n = Math.min(20, Math.max(1, parseInt(count, 10) || 1))
-        onAdded(await api.encounters.addCombatant(encounterId, { monster_id: Number(monsterId), initiative, count: n }))
+        const w = wave === '' ? undefined : Math.min(50, Math.max(currentWave, parseInt(wave, 10) || 0))
+        onAdded(await api.encounters.addCombatant(encounterId, { monster_id: Number(monsterId), initiative, count: n, wave: w }))
       } else {
         if (!name.trim()) return
         const lvl = level ? Math.min(20, Math.max(1, Number(level))) : undefined
@@ -740,6 +794,11 @@ function AddCombatant({
             />
             <span className="muted">×</span>
             <input type="number" placeholder="init" value={init} onChange={(e) => setInit(e.target.value)} style={{ width: 70 }} />
+            <input
+              type="number" min={currentWave} max={50} placeholder="wave" value={wave}
+              title={`Wave to arrive in. Empty = in the fight now (wave ${currentWave}). A later wave waits until you start it.`}
+              onChange={(e) => setWave(e.target.value)} style={{ width: 74 }}
+            />
             <button type="submit">+ Add</button>
           </>
         ) : (

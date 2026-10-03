@@ -8,6 +8,7 @@ class CombatantCreate(BaseModel):
     monster_id: int | None = None
     name: str | None = None
     nick: str | None = Field(default=None, max_length=100)  # tag shown beside the name
+    wave: int | None = Field(default=None, ge=0, le=50)  # default: the encounter's current wave
     is_pc: bool = False
     level: int | None = Field(default=None, ge=1, le=20)  # PC level
     initiative: int | None = None
@@ -21,6 +22,7 @@ class CombatantCreate(BaseModel):
 class CombatantUpdate(BaseModel):
     name: str | None = None
     nick: str | None = Field(default=None, max_length=100)  # null or "" clears it
+    wave: int | None = Field(default=None, ge=0, le=50)
     level: int | None = Field(default=None, ge=1, le=20)
     initiative: int | None = None
     dex_modifier: int | None = None
@@ -39,6 +41,7 @@ class CombatantOut(BaseModel):
     monster_id: int | None = None
     name: str
     nick: str | None = None
+    wave: int = 0
     is_pc: bool
     level: int | None = None
     initiative: int | None = None
@@ -70,6 +73,7 @@ class EnemySpec(BaseModel):
     count: int = Field(default=1, ge=1, le=20)
     name: str | None = None  # override the statblock name
     nick: str | None = Field(default=None, max_length=100)  # tag beside the name, on every copy
+    wave: int = Field(default=0, ge=0, le=50)  # 0 = in the fight from the start
 
     @model_validator(mode="after")
     def _one_reference(self):
@@ -98,6 +102,9 @@ class EncounterOut(BaseModel):
     notes: str | None = None
     round: int
     current_turn_index: int
+    current_wave: int = 0  # combatants with a higher wave are still in reserve
+    # in-fight combatants first, in initiative order (current_turn_index points into
+    # these), then the reserve by wave
     combatants: list[CombatantOut] = []
     undo_label: str | None = None  # what Undo would revert; None = nothing to undo
 

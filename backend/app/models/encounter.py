@@ -12,6 +12,9 @@ class Encounter(Model):
     round = fields.IntField(default=1)
     # index into initiative-sorted combatants; -1 = combat not started
     current_turn_index = fields.IntField(default=-1)
+    # waves up to this number are in the fight; later ones wait in reserve.
+    # Added after launch — init_db.py adds the column to existing databases.
+    current_wave = fields.IntField(default=0)
 
     created_at = fields.DatetimeField(auto_now_add=True)
 
@@ -38,6 +41,9 @@ class Combatant(Model):
     # Added after launch — init_db.py adds the column to existing databases.
     nick = fields.CharField(max_length=100, null=True)
     is_pc = fields.BooleanField(default=False)
+    # 0 = there from the start; N joins when the DM starts wave N (see Encounter.current_wave).
+    # Added after launch — init_db.py adds the column to existing databases.
+    wave = fields.IntField(default=0)
     level = fields.IntField(null=True)  # PC level; drives encounter difficulty budget
 
     initiative = fields.IntField(null=True)  # rolled total; null = not yet rolled
