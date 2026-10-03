@@ -229,19 +229,21 @@ function PasteJson({ onClose, onSaved }: { onClose: () => void; onSaved: () => v
     }
     setBusy(true)
     try {
-      if (isMonsterList(parsed)) {
-        const r = await api.monsters.importJsonBulk(parsed)
-        if (r.failed.length === 0) {
-          onSaved()
-          alert(`Added ${r.imported.length} monster${r.imported.length === 1 ? '' : 's'} to your library.`)
-        } else {
-          // keep the dialog open so the failures can be read and fixed
-          setResult(r)
-        }
-      } else {
-        const m = await api.monsters.importJson(parsed)
+      // a single object goes through the bulk endpoint too, so "already there" is reported
+      const r = await api.monsters.importJsonBulk(isMonsterList(parsed) ? parsed : [parsed])
+      if (r.failed.length === 0) {
         onSaved()
-        alert(`Added "${m.name}" to your library.`)
+        const n = r.imported.length
+        const added = n === 1 ? `Added "${r.imported[0].name}" to your library.`
+          : n > 1 ? `Added ${n} monsters to your library.` : 'Nothing new to add.'
+        const s = r.skipped.length
+        const skipped = s === 0 ? ''
+          : s === 1 ? ` "${r.skipped[0].name}" is already there — skipped.`
+          : ` ${s} are already there — skipped.`
+        alert(added + skipped)
+      } else {
+        // keep the dialog open so the failures can be read and fixed
+        setResult(r)
       }
     } catch (e) {
       setError((e as Error).message)
@@ -274,7 +276,8 @@ function PasteJson({ onClose, onSaved }: { onClose: () => void; onSaved: () => v
         <p className="muted">
           Paste one monster as a JSON object, or several as a list. Both this app's shape and
           Open5e statblocks work, including a whole Open5e page (<code>{'{"results": [...]}'}</code>).
-          Up to 500 at once. They're saved as homebrew.
+          Up to 500 at once. They're saved as homebrew; a statblock your library already
+          has is skipped.
         </p>
         {help && (
           <div className="json-help">
@@ -312,7 +315,9 @@ function PasteJson({ onClose, onSaved }: { onClose: () => void; onSaved: () => v
         {result && (
           <div className="bulk-result">
             <p>
-              Added <strong>{result.imported.length}</strong>, failed <strong>{result.failed.length}</strong>.
+              Added <strong>{result.imported.length}</strong>
+              {result.skipped.length > 0 && <>, already there <strong>{result.skipped.length}</strong></>}
+              , failed <strong>{result.failed.length}</strong>.
               {result.imported.length > 0 && <> The added ones are already in your library.</>}
             </p>
             <ul>

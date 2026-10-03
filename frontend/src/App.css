@@ -333,7 +333,19 @@ h3 { font-family: var(--display); font-weight: 600; letter-spacing: 0.05em; }
 }
 .init-input:focus { outline: none; box-shadow: none; }
 .who strong { display: block; font-size: 0.98rem; }
-.who-head { display: flex; align-items: center; gap: 9px; }
+.who-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+/* DM's tag beside a monster name; the empty "+ nick" stays quiet until the row is hovered */
+button.nick {
+  padding: 1px 8px; border-radius: var(--radius-sm); cursor: pointer;
+  font-family: inherit; font-size: 0.86rem; font-style: italic; line-height: 1.35;
+  background: transparent; border: 1px dashed var(--border-2); color: var(--muted);
+  box-shadow: none; opacity: 0; transition: opacity 0.16s;
+}
+.combatant:hover button.nick, button.nick:focus-visible, button.nick.set { opacity: 1; }
+button.nick:hover:not(:disabled) { background: var(--hover-wash); border-color: var(--crimson); color: var(--crimson); }
+button.nick.set { border-style: solid; border-color: var(--border); background: var(--surface-3); color: var(--ink-dim); }
+.nick-input { width: 11em; max-width: 100%; padding: 1px 8px; font-size: 0.86rem; font-style: italic; }
+@media (hover: none) { button.nick { opacity: 1; } }
 /* AC as a heater shield — steel rim over a blue field, read at a glance */
 .ac-slot { display: flex; align-items: center; justify-content: center; }
 .ac-shield {

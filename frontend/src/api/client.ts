@@ -54,6 +54,7 @@ export interface Combatant {
   id: number
   monster_id: number | null
   name: string
+  nick: string | null  // DM's tag beside the name ("elf", "Skarr")
   is_pc: boolean
   level: number | null
   initiative: number | null
@@ -131,6 +132,7 @@ function qs(params: Record<string, string | number | undefined>): string {
 
 export interface BulkMonsterImport {
   imported: Monster[]
+  skipped: Monster[]  // identical statblock already in the library — not added again
   failed: { index: number; name: string | null; error: string }[]
 }
 

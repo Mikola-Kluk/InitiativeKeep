@@ -101,3 +101,38 @@ async def test_bulk_import_over_limit_is_422(client):
     payload = [{"name": f"M{i}"} for i in range(501)]
     resp = await client.post("/api/v1/monsters/import-json/bulk", json=payload)
     assert resp.status_code == 422
+
+
+async def test_import_identical_statblock_is_not_added_twice(client):
+    goblin = {"name": "Twice Goblin", "hit_points": 7, "actions": [{"name": "Scimitar", "desc": "..."}]}
+    first = await client.post("/api/v1/monsters/import-json", json=goblin)
+    assert first.status_code == 201
+
+    # same stats, name in another letter case -> the existing one comes back
+    again = await client.post("/api/v1/monsters/import-json", json={**goblin, "name": "twice goblin"})
+    assert again.status_code == 200
+    assert again.json()["id"] == first.json()["id"]
+
+    # same name, different stats -> a real second statblock
+    other = await client.post("/api/v1/monsters/import-json", json={**goblin, "hit_points": 21})
+    assert other.status_code == 201
+    assert other.json()["id"] != first.json()["id"]
+
+    assert len((await client.get("/api/v1/monsters/", params={"search": "twice goblin"})).json()) == 2
+
+
+async def test_bulk_import_skips_statblocks_already_in_library(client):
+    wolf = {"name": "Skip Wolf", "hit_points": 11}
+    await client.post("/api/v1/monsters/import-json", json=wolf)
+
+    resp = await client.post("/api/v1/monsters/import-json/bulk", json=[
+        wolf,                                   # already in the library
+        {"name": "Skip Bear", "hit_points": 34},
+        {"name": "Skip Bear", "hit_points": 34},  # repeated inside the same paste
+    ])
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert [m["name"] for m in body["imported"]] == ["Skip Bear"]
+    assert [m["name"] for m in body["skipped"]] == ["Skip Wolf", "Skip Bear"]
+    assert body["failed"] == []

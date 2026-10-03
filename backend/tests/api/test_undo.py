@@ -162,3 +162,24 @@ async def test_recharge_used_is_normalized(client):
         json={"recharge_used": [{"name": "Fire Breath"}, {"name": "Fire Breath", "round": 3}, "junk", {}]},
     )
     assert r.json()["combatants"][0]["recharge_used"] == [{"name": "Fire Breath", "round": 1}]
+
+
+async def test_nick_set_clear_and_undo(client):
+    enc = (await client.post("/api/v1/encounters/", json={"name": "Road"})).json()
+    base = f"/api/v1/encounters/{enc['id']}"
+    data = (await client.post(f"{base}/combatants", json={"name": "Bandit", "nick": "elf"})).json()
+    cid = data["combatants"][0]["id"]
+    assert data["combatants"][0]["nick"] == "elf"
+
+    data = (await client.patch(f"{base}/combatants/{cid}", json={"nick": " Skarr "})).json()
+    assert data["combatants"][0]["nick"] == "Skarr"
+    assert data["undo_label"] == 'Bandit: nick "Skarr"'
+
+    # blank clears it; the name is untouched
+    data = (await client.patch(f"{base}/combatants/{cid}", json={"nick": ""})).json()
+    assert data["combatants"][0]["nick"] is None
+    assert data["combatants"][0]["name"] == "Bandit"
+    assert data["undo_label"] == "Bandit: nick removed"
+
+    data = (await client.post(f"{base}/undo")).json()
+    assert data["combatants"][0]["nick"] == "Skarr"

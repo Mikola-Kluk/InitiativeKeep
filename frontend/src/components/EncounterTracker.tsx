@@ -288,6 +288,47 @@ function DifficultyPanel({ enc, monsters }: { enc: Encounter; monsters: Monster[
   )
 }
 
+/** The DM's own tag beside a monster's name ("elf", "Skarr") — click to edit in place. */
+function NickTag({ nick, name, onSave }: { nick: string | null; name: string; onSave: (nick: string | null) => void }) {
+  const [draft, setDraft] = useState<string | null>(null)  // null = not editing
+
+  function commit() {
+    if (draft === null) return
+    const next = draft.trim() || null
+    setDraft(null)
+    if (next !== nick) onSave(next)
+  }
+
+  if (draft !== null) {
+    return (
+      <input
+        className="nick-input"
+        autoFocus
+        maxLength={100}
+        placeholder="elf, Skarr…"
+        aria-label={`Nick for ${name}`}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit()
+          if (e.key === 'Escape') setDraft(null)
+        }}
+      />
+    )
+  }
+  return (
+    <button
+      className={`nick ${nick ? 'set' : ''}`}
+      title={nick ? 'Edit nick' : 'Add a nick to tell this one apart (race, name, a mark)'}
+      aria-label={nick ? `Nick for ${name}: ${nick}. Edit` : `Add a nick for ${name}`}
+      onClick={() => setDraft(nick ?? '')}
+    >
+      {nick ?? '+ nick'}
+    </button>
+  )
+}
+
 type RechargeAbility = { name: string; min: number | null }  // min 5 = "Recharge 5–6"; null = per rest
 
 const RECHARGE_ROLL = /\(\s*recharge\s+(\d)(?:\s*[–—-]\s*6)?\s*\)/i
@@ -407,6 +448,7 @@ function CombatantRow({
           ) : (
             <strong>{c.name}</strong>
           )}
+          {!c.is_pc && <NickTag nick={c.nick} name={c.name} onSave={(nick) => patch({ nick })} />}
         </div>
         <span className="tags">
           {/* level lives on the medal now — no need to say it twice */}

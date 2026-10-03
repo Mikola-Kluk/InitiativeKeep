@@ -7,6 +7,7 @@ class CombatantCreate(BaseModel):
     # Provide monster_id to spawn from a statblock, or fill fields manually for a PC.
     monster_id: int | None = None
     name: str | None = None
+    nick: str | None = Field(default=None, max_length=100)  # tag shown beside the name
     is_pc: bool = False
     level: int | None = Field(default=None, ge=1, le=20)  # PC level
     initiative: int | None = None
@@ -19,6 +20,7 @@ class CombatantCreate(BaseModel):
 
 class CombatantUpdate(BaseModel):
     name: str | None = None
+    nick: str | None = Field(default=None, max_length=100)  # null or "" clears it
     level: int | None = Field(default=None, ge=1, le=20)
     initiative: int | None = None
     dex_modifier: int | None = None
@@ -36,6 +38,7 @@ class CombatantOut(BaseModel):
     id: int
     monster_id: int | None = None
     name: str
+    nick: str | None = None
     is_pc: bool
     level: int | None = None
     initiative: int | None = None
@@ -66,6 +69,7 @@ class EnemySpec(BaseModel):
     monster_id: int | None = None
     count: int = Field(default=1, ge=1, le=20)
     name: str | None = None  # override the statblock name
+    nick: str | None = Field(default=None, max_length=100)  # tag beside the name, on every copy
 
     @model_validator(mode="after")
     def _one_reference(self):

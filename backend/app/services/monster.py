@@ -21,10 +21,32 @@ def normalize_monster_payload(raw: dict) -> dict:
     return {k: v for k, v in data.items() if k in allowed and v is not None}
 
 
-async def create_monster_from_json(raw: dict) -> Monster:
-    """Validate a pasted JSON statblock and store it as homebrew."""
+# what the creature is, as opposed to where the row came from (id, slug, source, ...)
+_STATBLOCK_FIELDS = tuple(f for f in MonsterCreate.model_fields if f != "name")
+
+
+def statblock_of(monster: Monster | MonsterCreate) -> dict:
+    """The stats of a statblock, for telling copies from namesakes."""
+    return {f: getattr(monster, f) for f in _STATBLOCK_FIELDS}
+
+
+async def find_identical(data: MonsterCreate) -> Monster | None:
+    """The oldest library statblock with this name (any letter case) and the same stats."""
+    wanted = statblock_of(data)
+    for existing in await Monster.filter(name__iexact=data.name.strip()).order_by("id"):
+        if statblock_of(existing) == wanted:
+            return existing
+    return None
+
+
+async def create_monster_from_json(raw: dict) -> tuple[Monster, bool]:
+    """Validate a pasted JSON statblock and store it as homebrew. A statblock the
+    library already holds is not stored again. Returns (monster, created)."""
     data = MonsterCreate(**normalize_monster_payload(raw))
-    return await create_monster(data)
+    existing = await find_identical(data)
+    if existing:
+        return existing, False
+    return await create_monster(data), True
 
 
 def _unwrap_monster_list(raw) -> list:
@@ -48,9 +70,12 @@ def _format_validation_error(e: ValidationError) -> str:
     )
 
 
-async def create_monsters_from_json(raw) -> tuple[list[Monster], list[BulkImportFailure]]:
+async def create_monsters_from_json(
+    raw,
+) -> tuple[list[Monster], list[Monster], list[BulkImportFailure]]:
     """Store many pasted statblocks as homebrew. Each item is validated on its
-    own: valid ones are saved, invalid ones are reported (not a 422 for all)."""
+    own: valid ones are saved, invalid ones are reported (not a 422 for all).
+    Returns (imported, skipped, failed); skipped = already in the library."""
     items = _unwrap_monster_list(raw)
     if not items:
         raise ValueError("The list is empty.")
@@ -58,16 +83,18 @@ async def create_monsters_from_json(raw) -> tuple[list[Monster], list[BulkImport
         raise ValueError(f"Too many statblocks ({len(items)}); the limit is {BULK_IMPORT_LIMIT}.")
 
     imported: list[Monster] = []
+    skipped: list[Monster] = []
     failed: list[BulkImportFailure] = []
     for i, item in enumerate(items):
         name = item.get("name") if isinstance(item, dict) else None
         try:
-            imported.append(await create_monster_from_json(item))
+            monster, created = await create_monster_from_json(item)
+            (imported if created else skipped).append(monster)
         except ValidationError as e:
             failed.append(BulkImportFailure(index=i, name=name, error=_format_validation_error(e)))
         except ValueError as e:
             failed.append(BulkImportFailure(index=i, name=name, error=str(e)))
-    return imported, failed
+    return imported, skipped, failed
 
 
 async def get_all_monsters(search: str | None = None) -> list[Monster]:

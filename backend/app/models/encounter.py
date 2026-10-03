@@ -34,6 +34,9 @@ class Combatant(Model):
     )
 
     name = fields.CharField(max_length=255)
+    # DM's own tag shown beside the name ("elf", "Skarr", "the one with the bow").
+    # Added after launch — init_db.py adds the column to existing databases.
+    nick = fields.CharField(max_length=100, null=True)
     is_pc = fields.BooleanField(default=False)
     level = fields.IntField(null=True)  # PC level; drives encounter difficulty budget
 

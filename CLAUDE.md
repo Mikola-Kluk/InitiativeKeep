@@ -87,6 +87,10 @@ calls live in services.
   (`services/character.py`, `/api/v1/characters`). Pick one to drop into an encounter
   as a PC combatant without re-typing; PCs carry a `level` that drives difficulty.
 - **Combatant** — a participant. Optional FK to a Monster (spawns from statblock) or a plain PC.
+  `nick` (nullable, ≤100) = the DM's tag beside the name ("elf", "Skarr") — separate from
+  `name`, so auto-numbering and the statblock name stay intact; blank/null clears it. Set via
+  `CombatantCreate`/`CombatantUpdate`/prepare's `enemies[].nick`; edited in place in the
+  tracker (`NickTag`, monsters only).
   Tracks `initiative`, `level` (PC), `current_hp`/`max_hp`/`temp_hp`, `concentrating`,
   `conditions` (JSON list of `{"name", "rounds": int|null}`; timed ones tick down at end of
   round in `next_turn`, legacy plain strings are normalized on read), and a legendary action
@@ -121,9 +125,14 @@ name-sorted, which otherwise buries the obvious hit — see `_name_rank` in `ser
 - `POST /api/v1/monsters/import-json` — add a homebrew monster from a raw JSON
   statblock (native or Open5e shape; `special_abilities` → traits). Validated via
   `MonsterCreate`; bad JSON → 422. See `normalize_monster_payload` in `services/monster.py`.
+  No duplicates: if the library already holds a statblock with the same name (any case)
+  and the same stats (`find_identical` / `statblock_of`), nothing is added and that one
+  is returned with 200 instead of 201. Same name + different stats is still added.
 - `POST /api/v1/monsters/import-json/bulk` — many homebrew monsters at once: a JSON list,
   or `{"results"|"monsters": [...]}` (e.g. a saved Open5e page). Max 500. Per-item
-  validation, partial success → 200 `{imported: [MonsterOut], failed: [{index, name, error}]}`;
+  validation, partial success → 200 `{imported: [MonsterOut], skipped: [MonsterOut],
+  failed: [{index, name, error}]}` (`skipped` = already in the library, incl. repeats
+  inside the same paste);
   bad envelope / empty / over limit → 422. See `create_monsters_from_json`.
 - `GET  /api/v1/open5e/monsters` — browse Open5e (3200+ statblocks), filters:
   `?q=`, `?cr=`, `?type=`, `?document=` (source slug), `?page=`; paginated (20/page)
@@ -132,11 +141,12 @@ name-sorted, which otherwise buries the obvious hit — see `_name_rank` in `ser
 - `POST /api/v1/open5e/import` — bulk import `{"slugs": [...]}` → `{imported, failed}`
 - `GET/POST/PATCH/DELETE /api/v1/encounters`
 - `POST /api/v1/encounters/prepare` — prep a fight in one call:
-  `{name, notes?, enemies: [{monster | monster_id, count 1–20, name?}]}` (max 50 entries)
+  `{name, notes?, enemies: [{monster | monster_id, count 1–20, name?, nick?}]}` (max 50 entries)
   → 201 `EncounterOut`, combat not started, no undo history. `monster` = library name
   (case-insensitive exact match), exactly one of `monster` / `monster_id` (else 422).
-  All-or-nothing: unknown monster → 404, name shared by several statblocks → 409,
-  nothing created. PCs join later via `POST /{id}/combatants`.
+  All-or-nothing: unknown monster → 404, nothing created. A name shared by identical copies
+  (`_same_statblock`, via `statblock_of` in `services/monster.py`) uses the oldest;
+  shared by different statblocks → 409 listing each id with origin, CR and HP. PCs join later via `POST /{id}/combatants`.
   See `prepare_encounter` in `services/encounter.py`.
 - `POST/PATCH/DELETE /api/v1/encounters/{id}/combatants[/{cid}]`
 - `POST /api/v1/encounters/{id}/start | next-turn | prev-turn` — combat control
@@ -166,11 +176,13 @@ frontend/src/
 │   ├── EncounterTracker.tsx   combat view: round + turn controls (start/next/prev/end,
 │   │                          Undo button + Ctrl+Z outside text fields),
 │   │                          combatant rows (initiative, AC shield / PC level medal,
+│   │                          click-to-edit nick beside monster names,
 │   │                          monster HP bar + dmg/heal, conditions; PC HP not tracked),
 │   │                          add combatant (from monster or PC),
 │   │                          clicking a monster name docks its statblock in a side panel
 │   ├── MonsterBrowser.tsx     Open5e browse/filter/import + homebrew "My Library";
-│   │                          Paste JSON dialog (one object → import-json, list → /bulk)
+│   │                          Paste JSON dialog (always `/import-json/bulk`; one object
+│   │                          is wrapped in a list so "already there" is reported)
 │   ├── MonsterEditor.tsx      homebrew statblock form; "?" shows field schema + live JSON
 │   ├── StatblockSchema.tsx    shared statblock field table + JSON examples (mirror of
 │   │                          MonsterCreate — update by hand when the schema changes)

@@ -102,4 +102,5 @@ class BulkImportFailure(BaseModel):
 
 class MonsterBulkImportResult(BaseModel):
     imported: list[MonsterOut] = []
+    skipped: list[MonsterOut] = []  # identical statblock already in the library
     failed: list[BulkImportFailure] = []

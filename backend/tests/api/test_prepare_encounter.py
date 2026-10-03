@@ -98,13 +98,28 @@ async def test_prepare_unknown_monster_name_creates_nothing(client):
 
 
 async def test_prepare_ambiguous_monster_name(client):
-    a = await Monster.create(name="Goblin")
-    b = await Monster.create(name="goblin")
+    # same name, different creatures (e.g. the same monster from two books)
+    a = await Monster.create(name="Goblin", hit_points=7, challenge_rating="1/4")
+    b = await Monster.create(name="goblin", hit_points=21, challenge_rating="1", slug="goblin-tob", source="open5e")
     resp = await client.post(URL, json={"name": "Twins", "enemies": [{"monster": "Goblin"}]})
     assert resp.status_code == 409
     detail = resp.json()["detail"]
-    assert str(a.id) in detail and str(b.id) in detail
+    assert f"id {a.id} (homebrew, CR 1/4, 7 HP)" in detail
+    assert f"id {b.id} (goblin-tob, CR 1, 21 HP)" in detail
     assert await Encounter.all().count() == 0
+
+
+async def test_prepare_identical_copies_use_the_oldest(client):
+    # the same statblock saved more than once is not a real ambiguity
+    stats = {"hit_points": 11, "armor_class": 12, "actions": [{"name": "Scimitar", "desc": "..."}]}
+    first = await Monster.create(name="Bandit", **stats)
+    await Monster.create(name="Bandit", **stats)
+    await Monster.create(name="bandit", source="open5e", is_homebrew=False, slug="bandit", **stats)
+
+    resp = await client.post(URL, json={"name": "Road", "enemies": [{"monster": "Bandit", "count": 2}]})
+
+    assert resp.status_code == 201
+    assert {c["monster_id"] for c in resp.json()["combatants"]} == {first.id}
 
 
 @pytest.mark.parametrize("enemy", [
@@ -121,3 +136,14 @@ async def test_prepare_rejects_bad_count(client):
     goblin = await Monster.create(name="Goblin")
     resp = await client.post(URL, json={"name": "Horde", "enemies": [{"monster_id": goblin.id, "count": 21}]})
     assert resp.status_code == 422
+
+
+async def test_prepare_with_nick(client):
+    await Monster.create(name="Bandit")
+    resp = await client.post(URL, json={
+        "name": "Road",
+        "enemies": [{"monster": "Bandit", "nick": " elf "}, {"monster": "Bandit", "count": 2}],
+    })
+    assert resp.status_code == 201
+    nicks = {c["name"]: c["nick"] for c in resp.json()["combatants"]}
+    assert nicks == {"Bandit (1)": "elf", "Bandit (2)": None, "Bandit (3)": None}

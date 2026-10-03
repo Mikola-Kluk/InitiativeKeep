@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body, HTTPException, Response
 from pydantic import ValidationError
 
 from app.schemas.monster import (
@@ -31,27 +31,35 @@ async def create_monster(data: MonsterCreate):
 
 
 @router.post("/import-json", response_model=MonsterOut, status_code=201)
-async def import_monster_json(payload: dict = Body(...)):
-    """Add a homebrew monster from a pasted JSON statblock (native or Open5e shape)."""
+async def import_monster_json(response: Response, payload: dict = Body(...)):
+    """Add a homebrew monster from a pasted JSON statblock (native or Open5e shape).
+    If the library already holds an identical statblock, nothing is added and that
+    one is returned with 200 instead of 201."""
     try:
-        return await monster_service.create_monster_from_json(payload)
+        monster, created = await monster_service.create_monster_from_json(payload)
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors())
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
+    if not created:
+        response.status_code = 200
+    return monster
 
 
 @router.post("/import-json/bulk", response_model=MonsterBulkImportResult)
 async def import_monsters_json_bulk(payload: list | dict = Body(...)):
     """Add many homebrew monsters at once from a JSON list of statblocks (or an
     object with a `results`/`monsters` list, e.g. a saved Open5e page).
-    Partial success: valid items are saved, invalid ones listed in `failed`."""
+    Partial success: valid items are saved, invalid ones listed in `failed`,
+    statblocks the library already holds listed in `skipped`."""
     try:
-        imported, failed = await monster_service.create_monsters_from_json(payload)
+        imported, skipped, failed = await monster_service.create_monsters_from_json(payload)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     return MonsterBulkImportResult(
-        imported=[MonsterOut.model_validate(m) for m in imported], failed=failed
+        imported=[MonsterOut.model_validate(m) for m in imported],
+        skipped=[MonsterOut.model_validate(m) for m in skipped],
+        failed=failed,
     )
 
 

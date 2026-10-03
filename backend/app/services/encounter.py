@@ -5,6 +5,7 @@ from tortoise.transactions import in_transaction
 from app.models.encounter import Combatant, Encounter, EncounterSnapshot
 from app.models.monster import Monster
 from app.services import dice
+from app.services.monster import statblock_of
 from app.schemas.encounter import (
     CombatantCreate,
     CombatantUpdate,
@@ -70,6 +71,11 @@ def _normalize_recharge(raw: list) -> list[dict]:
     return out
 
 
+def _clean_nick(raw: str | None) -> str | None:
+    """Trim the DM's tag; blank means none."""
+    return (raw or "").strip() or None
+
+
 def _initiative_key(c: Combatant) -> tuple:
     """Sort key: highest initiative first, dex modifier as tiebreak. Unrolled last."""
     rolled = c.initiative is not None
@@ -99,7 +105,7 @@ UNDO_LIMIT = 50  # snapshots kept per encounter
 
 # combatant columns captured in a snapshot and written back on undo
 _SNAPSHOT_FIELDS = (
-    "id", "monster_id", "name", "is_pc", "level", "initiative", "dex_modifier",
+    "id", "monster_id", "name", "nick", "is_pc", "level", "initiative", "dex_modifier",
     "armor_class", "max_hp", "current_hp", "temp_hp", "conditions", "concentrating",
     "legendary_actions_max", "legendary_actions_remaining", "recharge_used",
 )
@@ -152,6 +158,8 @@ def _describe_update(c: Combatant, changes: dict) -> str:
             parts.append(f"legendary {old} → {new}")
         elif key == "initiative":
             parts.append(f"initiative {old} → {new}")
+        elif key == "nick":
+            parts.append(f'nick "{new}"' if new else "nick removed")
         elif key == "recharge_used":
             before = {x["name"] for x in _normalize_recharge(old)}
             after = {x["name"] for x in new}
@@ -239,11 +247,23 @@ async def create_encounter(data: EncounterCreate) -> dict:
     return _serialize(encounter)
 
 
+def _same_statblock(monsters: list[Monster]) -> bool:
+    """True if these library rows are copies of one statblock (e.g. pasted twice)."""
+    first = statblock_of(monsters[0])
+    return all(statblock_of(m) == first for m in monsters[1:])
+
+
+def _describe_monster(m: Monster) -> str:
+    origin = m.slug or m.source
+    return f"id {m.id} ({origin}, CR {m.challenge_rating or '—'}, {m.hit_points} HP)"
+
+
 async def prepare_encounter(data: EncounterPrepare) -> dict:
     """Create an encounter already stocked with its enemies (combat not started).
     Enemies name their statblock by library name (case-insensitive) or by id.
+    A name shared by identical copies resolves to the oldest copy.
     All-or-nothing: raises LookupError if a monster is unknown, ValueError if a
-    name matches several statblocks. No undo history — there is nothing before a
+    name matches several different statblocks. No undo history — there is nothing before a
     fresh encounter to go back to."""
     ids = {e.monster_id for e in data.enemies if e.monster_id is not None}
     by_id = {m.id: m for m in await Monster.filter(id__in=list(ids))} if ids else {}
@@ -252,11 +272,11 @@ async def prepare_encounter(data: EncounterPrepare) -> dict:
     by_name: dict[str, Monster] = {}
     for key in {e.monster.strip().lower() for e in data.enemies if e.monster is not None}:
         matches = await Monster.filter(name__iexact=key).order_by("id")
-        if len(matches) > 1:
-            found = ", ".join(str(m.id) for m in matches)
+        if len(matches) > 1 and not _same_statblock(matches):
+            found = "; ".join(_describe_monster(m) for m in matches)
             raise ValueError(
-                f"Monster name '{matches[0].name}' matches several statblocks "
-                f"(ids {found}) — use monster_id instead."
+                f"Monster name '{matches[0].name}' matches different statblocks: "
+                f"{found} — use monster_id instead."
             )
         if matches:
             by_name[key] = matches[0]
@@ -274,6 +294,7 @@ async def prepare_encounter(data: EncounterPrepare) -> dict:
             )
             fields = _monster_fields(monster)
             fields["encounter_id"] = encounter.id
+            fields["nick"] = _clean_nick(enemy.nick)
             base = _base_name(enemy.name or monster.name)
             for _ in range(enemy.count):
                 fields["name"] = await _dedupe_name(encounter.id, base)
@@ -324,6 +345,7 @@ async def add_combatant(encounter_id: int, data: CombatantCreate) -> dict | None
     fields: dict = {
         "encounter_id": encounter_id,
         "name": data.name,
+        "nick": _clean_nick(data.nick),
         "is_pc": data.is_pc,
         "level": data.level,
         "initiative": data.initiative,
@@ -337,8 +359,7 @@ async def add_combatant(encounter_id: int, data: CombatantCreate) -> dict | None
         monster = await Monster.get_or_none(id=data.monster_id)
         if not monster:
             return None
-        base_fields = _monster_fields(monster)
-        fields.update(base_fields)
+        fields.update(_monster_fields(monster))
         fields["name"] = data.name or monster.name
         if data.dex_modifier is not None:
             fields["dex_modifier"] = data.dex_modifier
@@ -368,6 +389,8 @@ async def update_combatant(
         update_data["conditions"] = _normalize_conditions(update_data["conditions"])
     if "recharge_used" in update_data:
         update_data["recharge_used"] = _normalize_recharge(update_data["recharge_used"])
+    if "nick" in update_data:
+        update_data["nick"] = _clean_nick(update_data["nick"])
     # only real changes go into the undo history
     update_data = {k: v for k, v in update_data.items() if getattr(combatant, k) != v}
     if update_data:
