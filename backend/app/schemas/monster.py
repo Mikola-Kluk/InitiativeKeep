@@ -79,6 +79,18 @@ class MonsterOut(MonsterBase):
     is_homebrew: bool
     dex_modifier: int
 
+    # Input limits don't apply on the way out: Open5e imports skip MonsterCreate and
+    # some third-party statblocks exceed them (e.g. CON 32) — one such row must not
+    # turn the whole list into a 500.
+    armor_class: int = 10
+    hit_points: int = 1
+    strength: int = 10
+    dexterity: int = 10
+    constitution: int = 10
+    intelligence: int = 10
+    wisdom: int = 10
+    charisma: int = 10
+
     model_config = {"from_attributes": True}
 
 

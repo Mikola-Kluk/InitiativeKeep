@@ -81,3 +81,18 @@ async def test_search_filter(client: AsyncClient):
     r = await client.get("/api/v1/monsters/", params={"search": "dragon"})
     names = [m["name"] for m in r.json()]
     assert names == ["Red Dragon"]
+
+
+async def test_list_survives_out_of_range_stats(client: AsyncClient):
+    # Open5e imports skip MonsterCreate, so stored rows can exceed the input limits
+    from app.models.monster import Monster
+
+    await Monster.create(name="Titan", source="open5e", is_homebrew=False, constitution=32)
+    r = await client.get("/api/v1/monsters/")
+    assert r.status_code == 200
+    assert r.json()[0]["constitution"] == 32
+
+
+async def test_create_still_rejects_out_of_range_stats(client: AsyncClient):
+    r = await client.post("/api/v1/monsters/", json={"name": "Cheater", "constitution": 32})
+    assert r.status_code == 422
