@@ -5,6 +5,7 @@ from app.schemas.encounter import (
     CombatantUpdate,
     EncounterCreate,
     EncounterOut,
+    EncounterPrepare,
     EncounterUpdate,
 )
 from app.services import encounter as encounter_service
@@ -28,6 +29,20 @@ async def get_encounter(encounter_id: int):
 @router.post("/", response_model=EncounterOut, status_code=201)
 async def create_encounter(data: EncounterCreate):
     return await encounter_service.create_encounter(data)
+
+
+@router.post("/prepare", response_model=EncounterOut, status_code=201)
+async def prepare_encounter(data: EncounterPrepare):
+    """Create an encounter with its enemies in one call (combat not started).
+    Enemies reference a library statblock by `monster` (name) or `monster_id`.
+    Add PCs later via POST /{encounter_id}/combatants."""
+    try:
+        return await encounter_service.prepare_encounter(data)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        # a name shared by several statblocks
+        raise HTTPException(status_code=409, detail=str(e))
 
 
 @router.patch("/{encounter_id}", response_model=EncounterOut)

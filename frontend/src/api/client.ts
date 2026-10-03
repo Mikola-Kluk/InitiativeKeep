@@ -183,6 +183,8 @@ export const api = {
     get: (id: number) => request<Encounter>(`/encounters/${id}`),
     create: (name: string) =>
       request<Encounter>('/encounters/', { method: 'POST', body: JSON.stringify({ name }) }),
+    prepare: (payload: unknown) =>
+      request<Encounter>('/encounters/prepare', { method: 'POST', body: JSON.stringify(payload) }),
     remove: (id: number) =>
       request<void>(`/encounters/${id}`, { method: 'DELETE' }),
     addCombatant: (id: number, body: Partial<Combatant> & { monster_id?: number; count?: number; level?: number }) =>

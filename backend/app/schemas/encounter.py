@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # ---- Combatant ----
@@ -58,6 +58,29 @@ class CombatantOut(BaseModel):
 class EncounterCreate(BaseModel):
     name: str
     notes: str | None = None
+
+
+class EnemySpec(BaseModel):
+    # Pick the statblock by library name (case-insensitive) or by id — exactly one.
+    monster: str | None = None
+    monster_id: int | None = None
+    count: int = Field(default=1, ge=1, le=20)
+    name: str | None = None  # override the statblock name
+
+    @model_validator(mode="after")
+    def _one_reference(self):
+        if (self.monster is None) == (self.monster_id is None):
+            raise ValueError("Give exactly one of 'monster' (name) or 'monster_id'.")
+        if self.monster is not None and not self.monster.strip():
+            raise ValueError("'monster' must not be empty.")
+        return self
+
+
+class EncounterPrepare(BaseModel):
+    # Encounter + its enemies in one call; PCs join later via POST /{id}/combatants.
+    name: str
+    notes: str | None = None
+    enemies: list[EnemySpec] = Field(default_factory=list, max_length=50)
 
 
 class EncounterUpdate(BaseModel):

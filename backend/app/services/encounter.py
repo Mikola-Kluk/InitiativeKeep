@@ -9,6 +9,7 @@ from app.schemas.encounter import (
     CombatantCreate,
     CombatantUpdate,
     EncounterCreate,
+    EncounterPrepare,
     EncounterUpdate,
 )
 
@@ -238,6 +239,48 @@ async def create_encounter(data: EncounterCreate) -> dict:
     return _serialize(encounter)
 
 
+async def prepare_encounter(data: EncounterPrepare) -> dict:
+    """Create an encounter already stocked with its enemies (combat not started).
+    Enemies name their statblock by library name (case-insensitive) or by id.
+    All-or-nothing: raises LookupError if a monster is unknown, ValueError if a
+    name matches several statblocks. No undo history — there is nothing before a
+    fresh encounter to go back to."""
+    ids = {e.monster_id for e in data.enemies if e.monster_id is not None}
+    by_id = {m.id: m for m in await Monster.filter(id__in=list(ids))} if ids else {}
+    missing = [str(i) for i in sorted(ids - set(by_id))]
+
+    by_name: dict[str, Monster] = {}
+    for key in {e.monster.strip().lower() for e in data.enemies if e.monster is not None}:
+        matches = await Monster.filter(name__iexact=key).order_by("id")
+        if len(matches) > 1:
+            found = ", ".join(str(m.id) for m in matches)
+            raise ValueError(
+                f"Monster name '{matches[0].name}' matches several statblocks "
+                f"(ids {found}) — use monster_id instead."
+            )
+        if matches:
+            by_name[key] = matches[0]
+        else:
+            missing.append(f"'{key}'")
+    if missing:
+        raise LookupError(f"Monster not found: {', '.join(missing)}")
+
+    async with in_transaction():
+        encounter = await Encounter.create(name=data.name, notes=data.notes)
+        for enemy in data.enemies:
+            monster = (
+                by_id[enemy.monster_id] if enemy.monster_id is not None
+                else by_name[enemy.monster.strip().lower()]
+            )
+            fields = _monster_fields(monster)
+            fields["encounter_id"] = encounter.id
+            base = _base_name(enemy.name or monster.name)
+            for _ in range(enemy.count):
+                fields["name"] = await _dedupe_name(encounter.id, base)
+                await Combatant.create(**fields)
+    return await get_encounter(encounter.id)
+
+
 async def update_encounter(encounter_id: int, data: EncounterUpdate) -> dict | None:
     encounter = await Encounter.get_or_none(id=encounter_id)
     if not encounter:
@@ -255,6 +298,23 @@ async def delete_encounter(encounter_id: int) -> bool:
 
 
 # ---- Combatants ----
+
+def _monster_fields(monster: Monster) -> dict:
+    """Combatant columns taken straight from a statblock."""
+    fields: dict = {
+        "monster_id": monster.id,
+        "name": monster.name,
+        "dex_modifier": monster.dex_modifier,
+        "armor_class": monster.armor_class,
+        "max_hp": monster.hit_points,
+        "current_hp": monster.hit_points,
+    }
+    if monster.legendary_actions:
+        # 5e default: 3 legendary actions per round
+        fields["legendary_actions_max"] = 3
+        fields["legendary_actions_remaining"] = 3
+    return fields
+
 
 async def add_combatant(encounter_id: int, data: CombatantCreate) -> dict | None:
     encounter = await Encounter.get_or_none(id=encounter_id)
@@ -277,16 +337,14 @@ async def add_combatant(encounter_id: int, data: CombatantCreate) -> dict | None
         monster = await Monster.get_or_none(id=data.monster_id)
         if not monster:
             return None
-        fields["monster_id"] = monster.id
+        base_fields = _monster_fields(monster)
+        fields.update(base_fields)
         fields["name"] = data.name or monster.name
-        fields["dex_modifier"] = data.dex_modifier if data.dex_modifier is not None else monster.dex_modifier
+        if data.dex_modifier is not None:
+            fields["dex_modifier"] = data.dex_modifier
         fields["armor_class"] = data.armor_class or monster.armor_class
         fields["max_hp"] = data.max_hp or monster.hit_points
-        fields["current_hp"] = data.current_hp if data.current_hp is not None else (data.max_hp or monster.hit_points)
-        if monster.legendary_actions:
-            # 5e default: 3 legendary actions per round
-            fields["legendary_actions_max"] = 3
-            fields["legendary_actions_remaining"] = 3
+        fields["current_hp"] = data.current_hp if data.current_hp is not None else fields["max_hp"]
 
     if not fields["name"]:
         return None

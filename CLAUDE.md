@@ -131,6 +131,13 @@ name-sorted, which otherwise buries the obvious hit — see `_name_rank` in `ser
 - `POST /api/v1/open5e/import/{slug}` — import one statblock (idempotent by slug)
 - `POST /api/v1/open5e/import` — bulk import `{"slugs": [...]}` → `{imported, failed}`
 - `GET/POST/PATCH/DELETE /api/v1/encounters`
+- `POST /api/v1/encounters/prepare` — prep a fight in one call:
+  `{name, notes?, enemies: [{monster | monster_id, count 1–20, name?}]}` (max 50 entries)
+  → 201 `EncounterOut`, combat not started, no undo history. `monster` = library name
+  (case-insensitive exact match), exactly one of `monster` / `monster_id` (else 422).
+  All-or-nothing: unknown monster → 404, name shared by several statblocks → 409,
+  nothing created. PCs join later via `POST /{id}/combatants`.
+  See `prepare_encounter` in `services/encounter.py`.
 - `POST/PATCH/DELETE /api/v1/encounters/{id}/combatants[/{cid}]`
 - `POST /api/v1/encounters/{id}/start | next-turn | prev-turn` — combat control
 - `POST /api/v1/encounters/{id}/undo` — revert the last change; 409 if nothing to undo
@@ -152,7 +159,10 @@ frontend/src/
 ├── api/client.ts             typed fetch wrapper + all API calls (mirrors backend schemas)
 ├── components/
 │   ├── EncounterList.tsx      list/create/delete encounters (cards: round seal,
-│   │                          player/monster tags, started vs. not-started)
+│   │                          player/monster tags, started vs. not-started);
+│   │                          Paste JSON dialog → `POST /encounters/prepare`
+│   ├── EncounterSchema.tsx    prepared-encounter field table, library name/id table,
+│   │                          example JSON (mirror of EncounterPrepare — update by hand)
 │   ├── EncounterTracker.tsx   combat view: round + turn controls (start/next/prev/end,
 │   │                          Undo button + Ctrl+Z outside text fields),
 │   │                          combatant rows (initiative, AC shield / PC level medal,
