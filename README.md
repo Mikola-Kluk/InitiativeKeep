@@ -31,7 +31,8 @@ Run encounters, track HP and conditions, and pull from 3200+ monster statblocks 
 - **↶ Undo** — every combat change (damage, conditions, turn moves, start/end, adding or removing combatants) can be undone; the button names what it will revert, and Ctrl+Z works too.
 - **📜 Auto rolls** — on combat start, every combatant rolls initiative (`d20 + DEX`); NPCs also reroll HP from their hit dice.
 - **📖 Statblock detail** — dock a monster's full statblock (abilities, AC/HP/CR, speed, traits, actions) in a side panel while you keep editing HP and conditions.
-- **🕯️ Table-ready look** — dark parchment theme with Cinzel/EB Garamond typography: AC shields for monsters, level medals for players, a round seal on every encounter card.
+- **🕯️ Table-ready look** — parchment theme with Cinzel/EB Garamond typography: AC shields for monsters, level medals for players, a round seal on every encounter card.
+- **🌙 Dark mode** — a candlelit leather-and-ink version of the theme for dim game rooms; toggle with ☀/☾ in the top bar. It follows your system setting until you pick one, and remembers your choice.
 - **📱 Responsive** — works on phone and tablet: combatant cards reflow, tables scroll, and the condition picker is tap-friendly.
 - **🐳 One-command run** — Docker builds the SPA and serves it from the API with a persistent SQLite volume.
 
@@ -130,8 +131,8 @@ Initiative order: highest `initiative` first, `dex_modifier` as tiebreak, unroll
 | `POST` | `/api/v1/open5e/import/{slug}` | Import one statblock (idempotent) |
 | `POST` | `/api/v1/open5e/import` | Bulk import `{"slugs": [...]}` |
 | `GET/POST/PATCH/DELETE` | `/api/v1/encounters` | Encounter CRUD |
-| `POST/PATCH/DELETE` | `/api/v1/encounters/{id}/combatants[/{cid}]` | Manage combatants |
 | `POST` | `/api/v1/encounters/prepare` | Create an encounter with its enemies in one call (add PCs later) |
+| `POST/PATCH/DELETE` | `/api/v1/encounters/{id}/combatants[/{cid}]` | Manage combatants |
 | `POST` | `/api/v1/encounters/{id}/start \| next-turn \| prev-turn` | Combat control |
 | `POST` | `/api/v1/encounters/{id}/undo` | Revert the last combat change |
 

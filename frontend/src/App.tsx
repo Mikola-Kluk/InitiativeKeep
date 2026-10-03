@@ -3,12 +3,14 @@ import './App.css'
 import EncounterList from './components/EncounterList'
 import EncounterTracker from './components/EncounterTracker'
 import MonsterBrowser from './components/MonsterBrowser'
+import { useTheme } from './useTheme'
 
 type Tab = 'encounters' | 'monsters'
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('encounters')
   const [activeEncounter, setActiveEncounter] = useState<number | null>(null)
+  const [theme, toggleTheme] = useTheme()
 
   return (
     <div className="app">
@@ -26,6 +28,14 @@ export default function App() {
             onClick={() => { setTab('monsters'); setActiveEncounter(null) }}
           >
             Monsters
+          </button>
+          <button
+            className="ghost theme-btn"
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? '☀' : '☾'}
           </button>
         </nav>
       </header>

@@ -177,12 +177,23 @@ frontend/src/
 │   └── MonsterDetail.tsx      statblock view (abilities, AC/HP/CR, speed, traits, actions);
 │                              always rendered with `variant="panel"` (docked side panel);
 │                              `variant="modal"` still supported but unused
-├── App.css                   all styles (no UI library), dark parchment/fantasy theme
-└── index.css                 reset + body + CSS custom properties (palette, type scale)
+├── App.css                   all styles (no UI library), parchment/fantasy theme
+├── index.css                 reset + body + CSS custom properties (palette, type scale),
+│                             light values on :root, dark overrides on [data-theme="dark"]
+└── useTheme.ts               light/dark toggle (☀/☾ in the top bar), saved in localStorage
 ```
 
 While the statblock panel is open the tracker sets `body.panel-open`, which shrinks
 the page so rows are not hidden under the docked panel.
+
+**Theming / dark mode:** App.css must not hard-code themed colours — use the tokens in
+`index.css` (`--danger-*`, `--heal-*`, `--temp-*`, `--gold-wash-*`, `--heading`, …, and
+`rgba(var(--shade|--crimson-rgb|--gold-rgb), a)` for tints/shadows). A new colour needs a
+light value on `:root` **and** a dark value under `:root[data-theme="dark"]`. Exceptions
+on purpose: the "metal" pieces (AC shield, PC medal, encounter seals, initiative arrow,
+ability-hex rims) and HP bar fills look the same in both themes. The inline script in
+`index.html` sets `data-theme` before first paint (saved choice, else OS setting) so
+dark mode never flashes light; `useTheme.ts` keeps it in sync afterwards.
 
 Fonts: **Cinzel** (headings) + **EB Garamond** (body), loaded from Google Fonts in
 `frontend/index.html` — no network, no fonts: the CSS stack falls back to system serif.

@@ -41,13 +41,54 @@
   --warn: #bf861c;
   --crit: #b3231b;
 
+  /* ── role colours (every themed colour in App.css comes from here) ── */
+  --heading:      var(--crimson-deep);  /* h2, table heads */
+  --on-accent:    #fbf1dc;              /* text on crimson fills */
+  --accent-hover: #c14a35;
+  --paper-top:    #ffffff;              /* card hover top */
+  --btn-hover-lo: #e6e0d1;
+  --input-hi:     #fefdfa;
+  --active-hi:    #fbf4e0;              /* row whose turn it is */
+  --active-lo:    #f6ebcf;
+
+  --danger-hi: #f5e0d7;  --danger-lo: #eed2c6;  --danger-edge: #c98a78;  --danger-ink: #8f2a1c;
+  --danger-hover-hi: #f2d4c7;  --danger-hover-lo: #e6bfae;
+  --heal-hi: #e2efd9;  --heal-lo: #d3e4c8;  --heal-edge: #86ac74;  --heal-ink: #2f6b30;
+  --heal-hover-hi: #d8ebcb;  --heal-hover-lo: #c6dcb8;  --heal-hover-edge: #5f8f4d;
+  --temp-hi: #dceaef;  --temp-lo: #cbdfe6;  --temp-edge: #6fa2b0;  --temp-ink: #1f5a6b;
+  --temp-hover-hi: #cfe4eb;  --temp-hover-lo: #bcd6df;  --temp-hover-edge: #47869a;
+  --gold-wash-hi: #f8ecc9;  --gold-wash-lo: #efdca8;  --gold-ink: #6b4c12;
+  --plum-hi: #f0e7f2;  --plum-hover-hi: #e7dbea;  --plum-hover-lo: #ddcce0;
+  --warn-ink: #8a5a12;
+  --crit-ink: #8f2214;
+
+  --track-hi: #dbcaa5;  --track-lo: #cdb98f;  --track-edge: #b9a377;  /* HP bar groove */
+  --orb-empty: #c9bb99;
+  --face-hi: #fefdfa;  --face-mid: #f2e8cd;  --face-lo: #e6d9b6;     /* ability hexes */
+  --code-bg: #2c2013;
+
+  /* washes and sheens laid over paper */
+  --hover-wash:    rgba(255, 250, 235, 0.5);
+  --sheen:         rgba(255, 251, 240, 0.9);
+  --sheen-soft:    rgba(255, 252, 242, 0.4);
+  --panel-wash-hi: rgba(248, 241, 222, 0.85);
+  --panel-wash-lo: rgba(243, 234, 212, 0.7);
+  --hatch:         rgba(90, 70, 40, 0.05);
+  --emboss:        rgba(255, 250, 235, 0.6);  /* 1px light under engraved headings */
+
+  /* rgb triplets for rgba(var(--x), alpha) tints and shadows */
+  --shade:       74, 54, 24;
+  --shade-deep:  44, 32, 19;
+  --crimson-rgb: 154, 43, 30;
+  --gold-rgb:    169, 121, 31;
+
   --radius: 10px;
   --radius-sm: 7px;
 
   /* layered shadows — paper lifting off paper, not a flat drop */
-  --shadow-sm: 0 1px 1px rgba(74, 54, 24, 0.14), 0 2px 5px rgba(74, 54, 24, 0.08);
-  --shadow:    0 2px 6px rgba(74, 54, 24, 0.14), 0 12px 30px rgba(74, 54, 24, 0.18);
-  --shadow-lg: 0 4px 12px rgba(44, 32, 19, 0.2), 0 26px 60px rgba(44, 32, 19, 0.3);
+  --shadow-sm: 0 1px 1px rgba(var(--shade), 0.14), 0 2px 5px rgba(var(--shade), 0.08);
+  --shadow:    0 2px 6px rgba(var(--shade), 0.14), 0 12px 30px rgba(var(--shade), 0.18);
+  --shadow-lg: 0 4px 12px rgba(var(--shade-deep), 0.2), 0 26px 60px rgba(var(--shade-deep), 0.3);
   /* hairline that reads as a paper edge catching light */
   --edge: inset 0 1px 0 rgba(255, 252, 240, 0.7);
 
@@ -63,6 +104,90 @@
   -webkit-font-smoothing: antialiased;
 }
 
+/* ── dark: the same book by candlelight — leather and ink, cream text ──
+   Set by the inline script in index.html (saved choice, else the OS setting).
+   Metal pieces (AC shield, PC medal, seals, initiative arrow) keep their own
+   colours in both themes. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg:        #1c1611;
+  --bg-deep:   #120e0a;
+  --surface:   #2a2119;
+  --surface-2: #231b14;
+  --surface-3: #3a2e22;
+  --paper-hi:  #31271d;
+  --paper-lo:  #282018;
+  --border:    #4a3b2a;
+  --border-2:  #6b5639;
+  --pewter:    #8c7650;
+
+  --ink:      #ece2cb;
+  --ink-dim:  #c9b897;
+  --muted:    #9c8867;
+
+  --steel:      #8fb4d0;
+  --steel-lt:   #1d2b36;
+  --steel-edge: #4f7590;
+  --plum:       #dcbfe0;
+  --plum-lt:    #33253a;
+  --plum-edge:  #6d4f74;
+
+  /* crimson lifted so it still reads as text on dark leather */
+  --accent:      #cc5440;
+  --accent-soft: #dd6e57;
+  --accent-deep: #8e2b1d;
+  --accent-glow: rgba(221, 110, 87, 0.22);
+  --crimson:     #cc5440;
+  --crimson-deep:#8e2b1d;
+  --gold:        #d4a446;
+  --gold-lt:     #e8c06a;
+  --gold-glow:   rgba(232, 192, 106, 0.22);
+
+  --ok:   #5fb26e;
+  --warn: #e0a63a;
+  --crit: #e0503f;
+
+  --heading:      #e8836b;
+  --accent-hover: #e27c64;
+  --paper-top:    #3b2f24;
+  --btn-hover-lo: #2d241b;
+  --input-hi:     #2c231a;
+  --active-hi:    #3b2a1e;
+  --active-lo:    #33241a;
+
+  --danger-hi: #3f201a;  --danger-lo: #361b16;  --danger-edge: #7d3c2e;  --danger-ink: #f2a796;
+  --danger-hover-hi: #4b261e;  --danger-hover-lo: #41211a;
+  --heal-hi: #213622;  --heal-lo: #1b2d1c;  --heal-edge: #4f7a45;  --heal-ink: #a2d89c;
+  --heal-hover-hi: #284329;  --heal-hover-lo: #223823;  --heal-hover-edge: #6a9f5c;
+  --temp-hi: #1d2f37;  --temp-lo: #182830;  --temp-edge: #3f6f80;  --temp-ink: #a3d3e2;
+  --temp-hover-hi: #233a45;  --temp-hover-lo: #1d323c;  --temp-hover-edge: #5b93a6;
+  --gold-wash-hi: #3b3018;  --gold-wash-lo: #332913;  --gold-ink: #f0d08a;
+  --plum-hi: #3d2d44;  --plum-hover-hi: #46344e;  --plum-hover-lo: #3e2d46;
+  --warn-ink: #f0be5a;
+  --crit-ink: #ff8f7a;
+
+  --track-hi: #3a2e22;  --track-lo: #2b2219;  --track-edge: #5a4830;
+  --orb-empty: #5e4f39;
+  --face-hi: #3b2f23;  --face-mid: #31271d;  --face-lo: #2a2119;
+  --code-bg: #0f0b08;
+
+  --hover-wash:    rgba(255, 235, 200, 0.07);
+  --sheen:         rgba(255, 235, 200, 0.04);
+  --sheen-soft:    rgba(255, 235, 200, 0.02);
+  --panel-wash-hi: rgba(49, 39, 29, 0.85);
+  --panel-wash-lo: rgba(40, 32, 24, 0.7);
+  --hatch:         rgba(255, 235, 200, 0.035);
+  --emboss:        rgba(0, 0, 0, 0.55);
+
+  --shade:       0, 0, 0;
+  --shade-deep:  0, 0, 0;
+  --crimson-rgb: 221, 110, 87;
+  --gold-rgb:    232, 192, 106;
+
+  --edge: inset 0 1px 0 rgba(255, 235, 200, 0.06);
+}
+
 * { box-sizing: border-box; }
 
 body {
@@ -70,8 +195,8 @@ body {
   color: var(--ink);
   font-family: var(--serif);
   background:
-    radial-gradient(1100px 700px at 82% -12%, rgba(154, 43, 30, 0.05), transparent 62%),
-    radial-gradient(900px 580px at 4% 108%, rgba(169, 121, 31, 0.06), transparent 58%),
+    radial-gradient(1100px 700px at 82% -12%, rgba(var(--crimson-rgb), 0.05), transparent 62%),
+    radial-gradient(900px 580px at 4% 108%, rgba(var(--gold-rgb), 0.06), transparent 58%),
     linear-gradient(170deg, var(--bg), var(--bg-deep));
   background-attachment: fixed;
   min-height: 100vh;
@@ -88,7 +213,7 @@ body::before {
 /* page vignette — a hint of edge shading, nothing more */
 body::after {
   content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  box-shadow: inset 0 0 160px rgba(74, 54, 24, 0.07);
+  box-shadow: inset 0 0 160px rgba(var(--shade), 0.07);
 }
 
 ::selection { background: var(--accent-glow); }
